@@ -1,416 +1,18 @@
 /**********************************************************/
 /* chat.js - Slack-like bottom-floating chat with         */
-/* direct messages and group channels, plus channel invites. */
-/* - "Leave Channel" button on the left, "Invite" (+) on right. */
-/* - Overlays for accepting/denying channel invites.           */
-/* - Multiple minimizable chat containers                 */
-/* - Prevents duplicate chat windows, close button, header shading */
+/* direct messages and group channels, simplified.         */
+/* - Initials next to chats for identification.           */
+/* - Streamlined channel join on typing.                  */
+/* - Leave channel functionality in channel list.          */
+/* - Create channel functionality in search.               */
 /**********************************************************/
 
 // Make sure you’ve loaded supabase.js and have supabaseClient
-// Also ensure your channel_members has a column is_accepted BOOLEAN DEFAULT true
-// to represent pending (false) vs accepted (true) membership
 
 /******************************************/
-/* Inlined CSS for the new features       */
+/*  CSS moved to chat.css                  */
 /******************************************/
-// Because you want them "cohesive," let's inject minimal additional styling:
-const styleEl = document.createElement("style");
-styleEl.textContent = `
-  /* Modified chat container for multiple instances */
-  .chat-container {
-    position: fixed;
-    bottom: 0;
-    right: 25px;
-    width: 320px; /* Slightly narrower */
-    height: 480px;
-    font-family: 'Inter', sans-serif;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    border-radius: 8px 8px 0 0;
-    overflow: hidden;
-    z-index: 9999;
-    display: flex; /* For minimize button alignment */
-    flex-direction: column;
-    background-color: #fff;
-    transition: all 0.3s ease;
-    margin-left: 10px; /* Space between containers */
-  }
 
-  .chat-container.base-container {
-    right: 25px; /* Base container stays on the right */
-    left: auto;
-  }
-
-  .additional-chat-container {
-    right: auto; /* Additional containers go to the left */
-    left: 25px; /* Start from the left */
-    margin-left: 330px; /* Adjust based on width + margin */
-  }
-
-  /* Shade differentiation */
-  .chat-container.shade-1 { background-color: #f9f9f9; }
-  .chat-container.shade-2 { background-color: #f2f2f2; }
-  .chat-container.shade-3 { background-color: #e8e8e8; }
-  .chat-container.shade-4 { background-color: #dfdfdf; }
-
-  .chat-container.chat-minimized {
-    height: 42px;
-    width: 240px;
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  /* Header */
-  .chat-header {
-    background-color: #606c38;
-    color: #fff;
-    padding: 10px 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: space-between; /* Distribute space to position buttons */
-    position: relative; /* For close button positioning */
-  }
-
-  /* Header shading */
-  .chat-header.header-shade-1 { background-color: rgba(96, 108, 56, 1); } /* Base color */
-  .chat-header.header-shade-2 { background-color: rgba(96, 108, 56, 0.8); }
-  .chat-header.header-shade-3 { background-color: rgba(96, 108, 56, 0.6); }
-  .chat-header.header-shade-4 { background-color: rgba(96, 108, 56, 0.4); }
-
-  .chat-header h2 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-    user-select: none;
-    overflow: hidden; /* For long titles */
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 70%; /* Prevent title from pushing minimize button too far */
-  }
-
-  .chat-header .chat-minimize-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 18px;
-    cursor: pointer;
-    margin-right: 5px; /* Add some space between minimize and close */
-  }
-
-  .chat-header .chat-close-btn {
-    background: none;
-    border: none;
-    color: #fff;
-    font-size: 16px;
-    cursor: pointer;
-    opacity: 0.7;
-  }
-
-  .chat-header .chat-close-btn:hover {
-    opacity: 1;
-  }
-
-
-  /* Body: includes mode switcher, top bar, user/channel list, message feed */
-  .chat-body {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: #fff;
-  }
-
-  .chat-mode-switcher {
-    display: flex;
-    gap: 2px;
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #ccc;
-    padding: 6px;
-  }
-
-  .chat-mode-btn {
-    flex: 1;
-    padding: 8px;
-    cursor: pointer;
-    text-align: center;
-    font-size: 14px;
-    border: none;
-    background-color: #e8e8e8;
-    color: #333;
-    font-weight: 500;
-    transition: background-color 0.2s;
-    border-radius: 4px;
-  }
-  .chat-mode-btn.active {
-    background-color: #fff;
-    font-weight: 600;
-    box-shadow: 0 0 2px rgba(0,0,0,0.1);
-  }
-  .chat-mode-btn:hover {
-    background-color: #ddd;
-  }
-
-  /* Body top section: used for searching or channel creation */
-  .chat-body-top {
-    padding: 8px;
-    border-bottom: 1px solid #ddd;
-    min-height: 65px; /* Enough space for a search box or create form */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  /* A more custom search style */
-  .chat-search-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .chat-search-wrapper {
-    flex: 1;
-    position: relative;
-  }
-
-  .chat-search-input {
-    width: 100%;
-    padding: 8px 40px 8px 12px; /* space for the icon on the right */
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 14px;
-    outline: none;
-  }
-
-  .chat-search-input:focus {
-    border-color: #606c38;
-  }
-
-  .chat-search-button {
-    position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
-    width: 38px;
-    border: none;
-    background: none;
-    cursor: pointer;
-    font-size: 15px;
-    color: #666;
-  }
-  .chat-search-button:hover {
-    color: #333;
-  }
-
-  /* The user/channel list area */
-  .chat-body-list {
-    flex-shrink: 0;
-    overflow-y: auto;
-    max-height: 120px;
-    border-bottom: 1px solid #ddd;
-  }
-
-  .chat-user-item,
-  .chat-channel-item {
-    padding: 8px;
-    font-size: 14px;
-    border-bottom: 1px solid #eee;
-    cursor: pointer;
-  }
-  .chat-user-item:hover,
-  .chat-channel-item:hover {
-    background-color: #fafafa;
-  }
-  .chat-user-item.active,
-  .chat-channel-item.active {
-    background-color: #e6f4ea;
-  }
-
-  /* The message feed */
-  .chat-body-feed {
-    flex-grow: 1;
-    overflow-y: auto;
-    background-color: #f9f9f9;
-    display: flex;
-    flex-direction: column;
-    padding: 8px;
-  }
-
-  /* Each message bubble */
-  .chat-message {
-    max-width: 70%;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    border-radius: 16px;
-    line-height: 1.4;
-    font-size: 14px;
-    word-wrap: break-word;
-    display: inline-block;
-  }
-
-  .chat-message.sent {
-    align-self: flex-end;
-    background-color: #3a5a40;
-    color: #fff;
-    border-top-right-radius: 4px;
-  }
-
-  .chat-message.received {
-    align-self: flex-start;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    color: #333;
-    border-top-left-radius: 4px;
-  }
-
-  /* Chat footer (input area) */
-  .chat-footer {
-    background-color: #fff;
-    padding: 8px;
-    border-top: 1px solid #ccc;
-    display: flex;
-    gap: 5px;
-    align-items: center;
-  }
-
-  .chat-footer input[type="text"] {
-    flex-grow: 1;
-    padding: 8px;
-    font-size: 14px;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-    outline: none;
-  }
-
-  .chat-footer input[type="text"]:focus {
-    border-color: #606c38;
-  }
-
-  .chat-footer button {
-    background-color: #606c38;
-    color: #fff;
-    border: none;
-    padding: 8px 14px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-  }
-  .chat-footer button:hover {
-    background-color: #283618;
-  }
-
-  /* Invite autocomplete container */
-  .invite-autocomplete-container {
-    position: relative;
-    margin-top: 8px;
-    display: none; /* shown only when user clicks + */
-    background-color: #fff;
-    padding: 8px;
-    border: 1px solid #ddd;
-  }
-  .invite-autocomplete-container.visible {
-    display: block;
-  }
-  .invite-autocomplete-input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-  }
-  .invite-autocomplete-results {
-    position: absolute;
-    left: 0; right: 0;
-    margin-top: 2px;
-    border: 1px solid #ddd;
-    background-color: #fff;
-    max-height: 150px;
-    overflow-y: auto;
-    z-index: 9999;
-  }
-  .invite-autocomplete-item {
-    padding: 8px;
-    cursor: pointer;
-  }
-  .invite-autocomplete-item:hover {
-    background-color: #f0f0f0;
-  }
-
-  /* Accept/Deny Overlay at bottom of chat container */
-  .invite-overlay {
-    position: absolute;
-    bottom: 60px; /* just above chat-footer which is ~40px high */
-    left: 0;
-    right: 0;
-    margin: auto;
-    width: 320px;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    box-shadow: 0 2px 8px rgba(0,0,0,.2);
-    border-radius: 6px;
-    padding: 12px;
-    display: none; /* hidden by default */
-    z-index: 10000; /* above everything else in the chat container */
-    text-align: center;
-  }
-  .invite-overlay.visible {
-    display: block;
-  }
-  .invite-overlay h3 {
-    font-size: 16px;
-    margin-bottom: 10px;
-  }
-  .invite-overlay button {
-    margin: 0 8px;
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  .invite-overlay button.accept-btn {
-    background-color: #3a5a40;
-    color: #fff;
-  }
-  .invite-overlay button.accept-btn:hover {
-    background-color: #283618;
-  }
-  .invite-overlay button.deny-btn {
-    background-color: #ccc;
-    color: #333;
-  }
-  .invite-overlay button.deny-btn:hover {
-    background-color: #bbb;
-  }
-
-
-  /* Autocomplete box for direct message searching */
-  .chat-autocomplete-results {
-    position: absolute;
-    top: 41px;
-    left: 0;
-    right: 0;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    z-index: 99999;
-    max-height: 150px;
-    overflow-y: auto;
-    border-radius: 4px;
-  }
-
-  .chat-autocomplete-item {
-    padding: 8px;
-    cursor: pointer;
-    font-size: 14px;
-  }
-  .chat-autocomplete-item:hover {
-    background-color: #f0f0f0;
-  }
-  .chat-no-results {
-    padding: 8px;
-    color: #999;
-    font-style: italic;
-  }
-`;
-document.head.appendChild(styleEl);
 
 /**********************************************************/
 /* The rest of your existing code, plus enhancements      */
@@ -424,14 +26,11 @@ let activeChannelId = null;
 let dmSubscription = null;
 let channelSubscription = null;
 
-// A cache for user info (as before)
+// A cache for user info
 const userInfoCache = {};
 
 // A real project ID that exists in your 'projects' table
 const defaultProjectId = "17beb421-6583-4f34-8919-140b60facb05";
-
-// We'll also track invites that the current user might accept/deny
-// We'll do a real-time subscription for channel_members changes where is_accepted=false and user_id=the current user
 
 // Track additional chat containers
 const additionalContainers = [];
@@ -450,17 +49,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 /*********************************************/
-/* Create the Base Chat Widget in the DOM      */
+/* Create the Base Chat Widget in the DOM    */
 /*********************************************/
 function initBaseChatWidget() {
   const container = document.createElement("div");
-  container.classList.add("chat-container", "base-container"); // Added base-container class
-  container.id = "base-chat-container"; // More specific ID
+  container.classList.add("chat-container", "base-container");
+  container.id = "base-chat-container";
 
   container.innerHTML = `
     <div class="chat-header" id="base-chat-header">
       <h2>Chats</h2>
       <button class="chat-minimize-btn" id="base-chat-minimize-btn">_</button>
+      <button class="chat-close-btn" id="base-chat-close-btn">×</button>
     </div>
 
     <div class="chat-body">
@@ -471,106 +71,55 @@ function initBaseChatWidget() {
 
       <div class="chat-body-top" id="base-chat-body-top"></div>
 
-      <!--
-        We'll keep the channel list or DM list here,
-        plus message feed below
-      -->
+      <!-- Channel and DM lists will be here -->
       <div class="chat-body-list" id="base-chat-body-list"></div>
 
-      <!-- The top area of feed for channel: leave + invite -->
-      <div class="channel-action-bar" id="base-channel-action-bar" style="display:none;">
-        <button class="leave-channel-btn" id="base-leave-channel-btn">Leave Channel</button>
-        <button class="invite-channel-btn" id="base-invite-channel-btn"><i class="fa fa-plus"></i></button>
-      </div>
-
-      <!-- The invite autocomplete hidden by default -->
-      <div class="invite-autocomplete-container" id="base-invite-container">
-        <input type="text" class="invite-autocomplete-input" id="base-invite-input" placeholder="Invite user by name..." />
-        <div class="invite-autocomplete-results" id="base-invite-results" style="display:none;"></div>
-      </div>
-
       <div class="chat-body-feed" id="base-chat-body-feed" style="display:none;"></div>
+
     </div>
-  `; // Removed chat-footer from base container
+    <div class="chat-footer" id="base-chat-footer">
+      <input type="text" id="chat-input-message-base-chat-container" placeholder="Type a message..." />
+      <button id="chat-send-btn-base-chat-container">Send</button>
+    </div>
+  `;
 
   document.body.appendChild(container);
 
   // Event listeners for base container
   document.getElementById("base-chat-minimize-btn").addEventListener("click", (e) => onMinimizeClick(e, container));
   document.getElementById("base-chat-header").addEventListener("click", (e) => onHeaderClick(e, container));
+  document.getElementById("base-chat-close-btn").addEventListener("click", (e) => onCloseChatContainer(e, container));
+
 
   const dmModeBtn = document.getElementById("dm-mode-btn");
   const channelModeBtn = document.getElementById("channel-mode-btn");
-  dmModeBtn.addEventListener("click", () => switchMode('dm', container)); // Pass container
-  channelModeBtn.addEventListener("click", () => switchMode('channel', container)); // Pass container
+  dmModeBtn.addEventListener("click", () => switchMode('dm', container));
+  channelModeBtn.addEventListener("click", () => switchMode('channel', container));
 
-  // Channel action bar for base container
-  const leaveBtn = document.getElementById("base-leave-channel-btn");
-  leaveBtn.addEventListener("click", (e) => onLeaveChannel(e, container)); // Pass container
-
-  const inviteBtn = document.getElementById("base-invite-channel-btn");
-  inviteBtn.addEventListener("click", (e) => toggleInviteContainer(e, container)); // Pass container
-
-  // Invite container for base container
-  const inviteContainer = document.getElementById("base-invite-container");
-  const inviteInput = document.getElementById("base-invite-input");
-  const inviteResults = document.getElementById("base-invite-results");
-
-  inviteInput.addEventListener("input", async () => {
-    const term = inviteInput.value.trim();
-    if (!term) {
-      inviteResults.style.display = "none";
-      return;
+  // Send message in base container
+  const baseSendBtn = document.getElementById(`chat-send-btn-base-chat-container`);
+  baseSendBtn.addEventListener("click", (e) => handleSendMessage(e, container));
+  const baseInputMsg = document.getElementById(`chat-input-message-base-chat-container`);
+  baseInputMsg.addEventListener("keyup", (e) => {
+    if (e.key === "Enter") {
+      handleSendMessage(e, container);
     }
-    // search
-    const { data, error } = await supabaseClient
-      .from("affiliations")
-      .select("id, user_id, username, first_name, last_name")
-      .or(`username.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
-      .neq("user_id", currentUser.id); // exclude self
-
-    if (error) {
-      console.error("Error searching for invite:", error);
-      return;
-    }
-    if (!data || !data.length) {
-      inviteResults.innerHTML = `<div class="invite-autocomplete-item">No users found</div>`;
-      inviteResults.style.display = "block";
-      return;
-    }
-    inviteResults.innerHTML = data.map(u => {
-      const displayName = getDisplayName(u);
-      return `<div class="invite-autocomplete-item" data-uid="${u.user_id}">${displayName}</div>`;
-    }).join("");
-    inviteResults.style.display = "block";
-
-    // handle item clicks
-    Array.from(inviteResults.querySelectorAll(".invite-autocomplete-item")).forEach(item => {
-      item.addEventListener("click", async () => {
-        const userId = item.getAttribute("data-uid");
-        await inviteUserToChannel(userId, container); // Pass container
-      });
-    });
   });
 
-  // Invite overlay accept/deny (these are shared, no need to pass container)
-  document.getElementById("invite-accept-btn").addEventListener("click", acceptChannelInvite);
-  document.getElementById("invite-deny-btn").addEventListener("click", denyChannelInvite);
-
   // Start in DM mode for base container
-  switchMode('dm', container); // Pass container
+  switchMode('dm', container);
 }
 
 /**************************************************/
-/* Open a New Chat Container                     */
+/* Open a New Chat Container                      */
 /**************************************************/
 async function openNewChatContainer(type, targetId) {
   // Check if a container for this chat already exists
   const existingContainerData = additionalContainers.find(c => c.type === type && c.targetId === targetId);
   if (existingContainerData) {
-    // Container already exists, maybe focus it or just do nothing
+    // Container already exists
     console.log("Chat window already open for this target.");
-    return; // Or focus the existing container if you have a way to track focus
+    return;
   }
 
   if (additionalContainers.length >= maxAdditionalContainers) {
@@ -588,21 +137,27 @@ async function openNewChatContainer(type, targetId) {
   const headerShadeClass = `header-shade-${shadeIndex}`;
   container.classList.add(shadeClass);
 
-
   let headerTitle = "";
+  let headerButtons = `
+      <button class="chat-leave-btn" id="chat-leave-btn-${container.id}" title="Leave Channel"><i class="fa fa-arrow-right"></i></button>
+      <button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>
+    `; // Added Leave button back for channel
+
   if (type === 'dm') {
     const user = await fetchUser(targetId);
     headerTitle = `DM: ${getDisplayName(user)}`;
+    headerButtons = `<button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>`; // DM style buttons - Minimize removed
   } else if (type === 'channel') {
     const channel = await fetchChannel(targetId);
     headerTitle = `#${channel.channel_name}`;
+    headerButtons = `<button class="chat-leave-btn" id="chat-leave-btn-${container.id}" title="Leave Channel"><i class="fa fa-arrow-right"></i></button>
+      <button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>`; // Channel style buttons - Minimize removed
   }
 
   container.innerHTML = `
     <div class="chat-header ${headerShadeClass}" id="chat-header-${container.id}">
-      <button class="chat-minimize-btn" id="chat-minimize-btn-${container.id}">_</button>
+      ${headerButtons}
       <h2>${headerTitle}</h2>
-      <button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>
     </div>
 
     <div class="chat-body">
@@ -619,21 +174,26 @@ async function openNewChatContainer(type, targetId) {
   const containerData = { container, type, targetId };
   additionalContainers.push(containerData);
 
-  // Calculate and set left position
+  // Calculate and set left position so they line up side-by-side
   let totalWidth = 25; // Start with base offset
   additionalContainers.forEach(cData => {
-    if (cData !== containerData) { // Don't include current container in calculation
-      totalWidth += cData.container.offsetWidth + 10; // Container width + margin
+    if (cData !== containerData) {
+      totalWidth += cData.container.offsetWidth + 10; // container width + margin
     }
   });
   container.style.left = `${totalWidth}px`;
 
-
   // Event listeners for new container
-  const minimizeBtn = document.getElementById(`chat-minimize-btn-${container.id}`);
-  minimizeBtn.addEventListener("click", (e) => onMinimizeClick(e, container));
-  const headerEl = document.getElementById(`chat-header-${container.id}`);
-  headerEl.addEventListener("click", (e) => onHeaderClick(e, container));
+  if (type === 'dm') {
+    const headerEl = document.getElementById(`chat-header-${container.id}`);
+    headerEl.addEventListener("click", (e) => onHeaderClick(e, container)); // Still allow header click even without minimize for consistent behavior
+  } else if (type === 'channel') {
+    const leaveBtn = document.getElementById(`chat-leave-btn-${container.id}`);
+    leaveBtn.addEventListener("click", (e) => onLeaveChannel(targetId, container));
+    const headerEl = document.getElementById(`chat-header-${container.id}`);
+    headerEl.addEventListener("click", (e) => onHeaderClickChannel(e, container)); // Keeping separate header click for channel
+  }
+
   const sendBtn = document.getElementById(`chat-send-btn-${container.id}`);
   sendBtn.addEventListener("click", (e) => handleSendMessage(e, container));
   const inputMsg = document.getElementById(`chat-input-message-${container.id}`);
@@ -645,11 +205,55 @@ async function openNewChatContainer(type, targetId) {
   const closeBtn = document.getElementById(`chat-close-btn-${container.id}`);
   closeBtn.addEventListener("click", (e) => onCloseChatContainer(e, container));
 
-
   if (type === 'dm') {
     loadDMConversation(targetId, document.getElementById(`chat-body-feed-${container.id}`));
   } else if (type === 'channel') {
+    // Ensure membership, then load messages
+    await ensureChannelMembership(targetId);
     loadChannelConversation(targetId, document.getElementById(`chat-body-feed-${container.id}`));
+
+    // IMPORTANT: Refresh the channel list in the base container so it appears for the user
+    const baseContainer = document.getElementById('base-chat-container');
+    await loadRecentChannels(baseContainer);
+    // Optionally switch the base container to 'channel' mode so user sees it right away:
+    switchMode('channel', baseContainer);
+  }
+}
+
+/**************************************************/
+/* Ensure Channel Membership                      */
+/**************************************************/
+async function ensureChannelMembership(channelId) {
+  // 1. Query without .single() or .maybeSingle()
+  const { data: rows, error } = await supabaseClient
+    .from('channel_members')
+    .select('*')
+    .eq('channel_id', channelId)
+    .eq('user_id', currentUser.id);
+
+  if (error) {
+    console.error("ensureChannelMembership - Error checking membership:", error);
+    return;
+  }
+
+  // 2. If we already have a row, do nothing
+  if (rows && rows.length > 0) {
+    return; // Already a membership row
+  }
+
+  // 3. Insert a new membership row if none found
+  const { error: joinError } = await supabaseClient
+    .from('channel_members')
+    .insert([{
+      channel_id: channelId,
+      user_id: currentUser.id,
+      joined_at: new Date().toISOString(),
+      is_accepted: true
+    }]);
+
+  if (joinError) {
+    console.error("Failed to join channel:", joinError);
+    alert("Failed to join channel!");
   }
 }
 
@@ -657,7 +261,7 @@ async function openNewChatContainer(type, targetId) {
 /* Close a Chat Container                         */
 /**************************************************/
 function onCloseChatContainer(event, currentContainer) {
-  event.stopPropagation(); // Stop header click minimize from also firing
+  event.stopPropagation(); // Stop header click-minimize
 
   // Remove from DOM
   currentContainer.remove();
@@ -668,7 +272,7 @@ function onCloseChatContainer(event, currentContainer) {
     additionalContainers.splice(index, 1);
   }
 
-  // Re-align remaining containers (optional, if you want to close gaps)
+  // Re-align remaining containers
   reAlignChatContainers();
 }
 
@@ -683,7 +287,6 @@ function reAlignChatContainers() {
   });
 }
 
-
 /**************************************************/
 /* Switch between DM mode and Channel mode        */
 /**************************************************/
@@ -692,27 +295,24 @@ function switchMode(mode, currentContainer) {
   activeDMUserId = null;
   activeChannelId = null;
 
+  if (!currentContainer) return;
   const dmBtn = currentContainer.querySelector("#dm-mode-btn");
   const chBtn = currentContainer.querySelector("#channel-mode-btn");
-  const inviteBar = currentContainer.querySelector(".channel-action-bar");
-
-
-  if (mode === "dm") {
-    dmBtn.classList.add("active");
-    chBtn.classList.remove("active");
-    setupDMUI(currentContainer);
-    inviteBar.style.display = "none";
-    currentContainer.querySelector(".invite-autocomplete-container").classList.remove("visible");
-  } else {
-    chBtn.classList.add("active");
-    dmBtn.classList.remove("active");
-    setupChannelUI(currentContainer);
-    inviteBar.style.display = "flex"; // Show invite button in channel mode
+  if (dmBtn && chBtn) {
+    if (mode === "dm") {
+      dmBtn.classList.add("active");
+      chBtn.classList.remove("active");
+      setupDMUI(currentContainer);
+    } else {
+      chBtn.classList.add("active");
+      dmBtn.classList.remove("active");
+      setupChannelUI(currentContainer);
+    }
   }
 }
 
 /**************************************************/
-/* Setup DM and Channel UI                       */
+/* Setup DM and Channel UI                        */
 /**************************************************/
 async function setupDMUI(currentContainer) {
   const topEl = currentContainer.querySelector(".chat-body-top");
@@ -725,8 +325,19 @@ async function setupDMUI(currentContainer) {
       </div>
     </div>
   `;
-  currentContainer.querySelector(".chat-body-feed").style.display = "none"; // Hide feed in base container
+  currentContainer.querySelector(".chat-body-feed").style.display = "none";
   await loadRecentDMs(currentContainer);
+
+  const searchInput = currentContainer.querySelector("#dm-search-input");
+  const searchBtn = currentContainer.querySelector("#dm-search-button");
+  const resultsBox = currentContainer.querySelector("#dm-autocomplete-results");
+
+  searchInput.addEventListener("input", async () => {
+    await doDMUserSearch(searchInput, resultsBox, currentContainer);
+  });
+  searchBtn.addEventListener("click", async () => {
+    await doDMUserSearch(searchInput, resultsBox, currentContainer);
+  });
 }
 
 async function doDMUserSearch(searchInput, resultsBox, currentContainer) {
@@ -744,7 +355,7 @@ async function doDMUserSearch(searchInput, resultsBox, currentContainer) {
     console.error("Error searching DM users:", error);
     return;
   }
-  const filtered = (data||[]).filter(u => u.user_id !== currentUser.id);
+  const filtered = (data || []).filter(u => u.user_id !== currentUser.id);
   if (!filtered.length) {
     resultsBox.innerHTML = `<div class="chat-no-results">No matching users</div>`;
     resultsBox.style.display = "block";
@@ -762,7 +373,7 @@ async function doDMUserSearch(searchInput, resultsBox, currentContainer) {
       activeDMUserId = userId;
       searchInput.value = item.innerText;
       resultsBox.style.display = "none";
-      openNewChatContainer('dm', userId); // Open new container on DM selection
+      openNewChatContainer('dm', userId);
     });
   });
 }
@@ -772,72 +383,122 @@ async function setupChannelUI(currentContainer) {
   topEl.innerHTML = `
     <div class="chat-search-container">
       <div class="chat-search-wrapper">
-        <input type="text" class="chat-search-input" id="channel-search-input" placeholder="Channel name..." />
-        <button class="chat-search-button" id="create-channel-button"><i class="fa fa-plus"></i></button>
+        <input type="text" class="chat-search-input" id="channel-search-input" placeholder="Search or create channels..." />
+        <button class="chat-search-button" id="channel-search-button"><i class="fa fa-plus"></i></button>
+        <div class="chat-autocomplete-results" id="channel-autocomplete-results" style="display:none;"></div>
       </div>
     </div>
   `;
-  currentContainer.querySelector(".chat-body-feed").style.display = "none"; // Hide feed in base container
+  currentContainer.querySelector(".chat-body-feed").style.display = "none";
   await loadRecentChannels(currentContainer);
+
+  // handle channel search and create
+  const searchInput = currentContainer.querySelector("#channel-search-input");
+  const searchBtn = currentContainer.querySelector("#channel-search-button");
+  const resultsBox = currentContainer.querySelector("#channel-autocomplete-results");
+
+  searchInput.addEventListener("input", async () => {
+    await doChannelSearch(searchInput, resultsBox, currentContainer);
+  });
+  searchBtn.addEventListener("click", async () => {
+    await doChannelSearch(searchInput, resultsBox, currentContainer);
+  });
 }
 
-/**************************************************/
-/* On channel click, show leave/invite bar, etc.  */
-/**************************************************/
-function showChannelActionBar(chId, currentContainer) {
-  activeChannelId = chId;
-  const bar = currentContainer.querySelector(".channel-action-bar");
-  bar.style.display = "flex"; // show
-  // Hide the invite container if open
-  currentContainer.querySelector(".invite-autocomplete-container").classList.remove("visible");
-}
-
-/**************************************************/
-/* Toggling the invite container in a channel     */
-/**************************************************/
-function toggleInviteContainer(event, currentContainer) {
-  const cont = currentContainer.querySelector(".invite-autocomplete-container");
-  cont.classList.toggle("visible");
-  // Clear input
-  currentContainer.querySelector(".invite-autocomplete-input").value = "";
-  currentContainer.querySelector(".invite-autocomplete-results").style.display = "none";
-}
-
-/**************************************************/
-/* Invite a user to the active channel            */
-/**************************************************/
-async function inviteUserToChannel(userId, currentContainer) {
-  if (!activeChannelId) {
-    alert("No active channel selected!");
+async function doChannelSearch(searchInput, resultsBox, currentContainer) {
+  const term = searchInput.value.trim();
+  if (!term) {
+    resultsBox.style.display = "none";
+    resultsBox.innerHTML = "";
     return;
   }
-  // Insert into channel_members with is_accepted=false
-  const { error } = await supabaseClient
-    .from("channel_members")
-    .insert([
-      {
-        channel_id: activeChannelId,
-        user_id: userId,
-        joined_at: new Date().toISOString(),
-        // is_accepted: false (if your schema supports it)
-        is_accepted: false
-      }
-    ]);
+
+  const { data, error } = await supabaseClient
+    .from("channels")
+    .select("*")
+    .ilike("channel_name", `%${term}%`);
+
   if (error) {
-    console.error("Error inviting user:", error);
-    alert("Failed to invite user!");
+    console.error("Error searching channels:", error);
     return;
   }
-  alert("Invitation sent!");
-  toggleInviteContainer(null, currentContainer);
+
+  resultsBox.innerHTML = "";
+  if (!data || !data.length) {
+    // Option to create a new channel
+    const createOption = document.createElement('div');
+    createOption.classList.add("chat-autocomplete-item");
+    createOption.textContent = `Create new channel '#${term}'`;
+    createOption.addEventListener('click', async () => {
+      const name = term;
+      if (!name) {
+        alert("Channel name is required");
+        return;
+      }
+      const { data: channelData, error: createError } = await supabaseClient
+        .from("channels")
+        .insert([{
+          channel_name: name,
+          creator_id: currentUser.id,
+          project_id: defaultProjectId
+        }])
+        .select();
+
+      if (createError) {
+        console.error("Error creating channel:", createError);
+        alert("Failed to create channel!");
+        return;
+      }
+      searchInput.value = `#${name}`;
+      resultsBox.style.display = "none";
+
+      // Refresh channel listing, open the new channel
+      await loadRecentChannels(currentContainer);
+      if (channelData && channelData.length > 0) {
+        openNewChatContainer('channel', channelData[0].id);
+
+        // Also refresh the base container list so the user sees new channel:
+        const baseContainer = document.getElementById('base-chat-container');
+        await loadRecentChannels(baseContainer);
+        switchMode('channel', baseContainer);
+      }
+    });
+    resultsBox.appendChild(createOption);
+    resultsBox.style.display = "block";
+    return;
+  }
+
+  // Show channels that match
+  data.forEach(ch => {
+    const channelItem = document.createElement('div');
+    channelItem.classList.add("chat-autocomplete-item");
+    channelItem.dataset.channelid = ch.id;
+    channelItem.textContent = `#${ch.channel_name}`;
+    channelItem.addEventListener('click', async () => {
+      const channelId = channelItem.dataset.channelid;
+      activeChannelId = channelId;
+      searchInput.value = channelItem.textContent;
+      resultsBox.style.display = "none";
+
+      // Open the existing channel
+      openNewChatContainer('channel', channelId);
+
+      // Also refresh the base container channels so it appears
+      const baseContainer = document.getElementById('base-chat-container');
+      await loadRecentChannels(baseContainer);
+      switchMode('channel', baseContainer);
+    });
+    resultsBox.appendChild(channelItem);
+  });
+  resultsBox.style.display = "block";
 }
 
 /**************************************************/
 /* Let user leave the channel                     */
 /**************************************************/
-async function onLeaveChannel(event, currentContainer) {
-  if (!activeChannelId) {
-    alert("No active channel selected.");
+async function onLeaveChannel(channelId, currentContainer) {
+  if (!channelId) {
+    alert("No channel selected.");
     return;
   }
   const confirmLeave = confirm("Are you sure you want to leave this channel?");
@@ -847,7 +508,7 @@ async function onLeaveChannel(event, currentContainer) {
   const { error } = await supabaseClient
     .from("channel_members")
     .delete()
-    .eq("channel_id", activeChannelId)
+    .eq("channel_id", channelId)
     .eq("user_id", currentUser.id);
 
   if (error) {
@@ -856,85 +517,24 @@ async function onLeaveChannel(event, currentContainer) {
     return;
   }
   alert("You have left the channel.");
-  // Reload channel list
+
+  // Reload channel list in whichever container is passed
   await loadRecentChannels(currentContainer);
-  currentContainer.querySelector(".channel-action-bar").style.display = "none";
   currentContainer.querySelector(".chat-body-feed").style.display = "none";
   activeChannelId = null;
-}
 
-/**************************************************/
-/* Accept or deny channel invite overlay          */
-/**************************************************/
-let pendingInviteRow = null; // store the row that the user is responding to
-
-async function acceptChannelInvite() {
-  if (!pendingInviteRow) return;
-  // Update is_accepted = true
-  const { error } = await supabaseClient
-    .from("channel_members")
-    .update({ is_accepted: true })
-    .eq("channel_id", pendingInviteRow.channel_id)
-    .eq("user_id", pendingInviteRow.user_id);
-  if (error) {
-    console.error("Error accepting invite:", error);
-    alert("Failed to accept invite!");
-    return;
-  }
-  closeInviteOverlay();
-  pendingInviteRow = null;
-  alert("Invite accepted! You have joined the channel.");
-  // Optionally reload channels
-  await loadRecentChannels(document.getElementById('base-chat-container')); // Reload in base container
-}
-
-async function denyChannelInvite() {
-  if (!pendingInviteRow) return;
-  // Remove row entirely
-  const { error } = await supabaseClient
-    .from("channel_members")
-    .delete()
-    .eq("channel_id", pendingInviteRow.channel_id)
-    .eq("user_id", pendingInviteRow.user_id);
-  if (error) {
-    console.error("Error denying invite:", error);
-    alert("Failed to deny invite!");
-    return;
-  }
-  closeInviteOverlay();
-  pendingInviteRow = null;
-  alert("Invite denied.");
-}
-
-/**************************************************/
-/* Show the accept/deny overlay                   */
-/**************************************************/
-function showInviteOverlay(row) {
-  pendingInviteRow = row;
-  const overlay = document.getElementById("invite-overlay");
-  overlay.classList.toggle('visible', currentMode === 'channel'); // Only show if in channel mode
-  if (currentMode === 'channel') {
-      overlay.querySelector("#invite-overlay-text").textContent =
-        `You have been invited to channel ${row.channel_id}. Accept?`;
-      overlay.classList.add("visible");
-  } else {
-      overlay.classList.remove("visible");
+  // If the current open chat is the channel left, close it
+  const containerData = additionalContainers.find(c => c.type === 'channel' && c.targetId === channelId);
+  if (containerData) {
+    onCloseChatContainer(new Event('manualClose'), containerData.container);
   }
 }
 
-
 /**************************************************/
-/* Hide the accept/deny overlay                   */
-/**************************************************/
-function closeInviteOverlay() {
-  document.getElementById("invite-overlay").classList.remove("visible");
-}
-
-/**************************************************/
-/* Subscriptions & detect channel invites         */
+/* Subscriptions for DM + Channel messages        */
 /**************************************************/
 function initRealtimeSubscriptions() {
-  // Direct messages as before ...
+  // Direct messages ...
   dmSubscription = supabaseClient
     .channel("direct-messages-changes")
     .on(
@@ -942,22 +542,24 @@ function initRealtimeSubscriptions() {
       { event: "INSERT", schema: "public", table: "direct_messages" },
       payload => {
         const newMsg = payload.new;
+        // If we are in DM mode and watching a particular user, refresh
         if (currentMode === "dm" && activeDMUserId) {
           const relevant =
             (newMsg.sender_id === currentUser.id && newMsg.recipient_id === activeDMUserId) ||
             (newMsg.recipient_id === currentUser.id && newMsg.sender_id === activeDMUserId);
           if (relevant) {
-            // Find the relevant container and load conversation there if open, otherwise base container
             const existingContainer = additionalContainers.find(c => c.type === 'dm' && c.targetId === activeDMUserId);
-            const feedElement = existingContainer ? document.getElementById(`chat-body-feed-${existingContainer.container.id}`) : null; // Do not load in base container
-            if(feedElement) loadDMConversation(activeDMUserId, feedElement);
+            const feedElement = existingContainer
+              ? document.getElementById(`chat-body-feed-${existingContainer.container.id}`)
+              : null;
+            if (feedElement) loadDMConversation(activeDMUserId, feedElement);
           }
         }
       }
     )
     .subscribe();
 
-  // Channel messages as before ...
+  // Channel messages ...
   channelSubscription = supabaseClient
     .channel("channel-messages-changes")
     .on(
@@ -965,28 +567,13 @@ function initRealtimeSubscriptions() {
       { event: "INSERT", schema: "public", table: "messages" },
       payload => {
         const newMsg = payload.new;
+        // If we are in channel mode and watching a particular channel, refresh
         if (currentMode === "channel" && activeChannelId && newMsg.channel_id === activeChannelId) {
-          // Find the relevant container and load conversation there if open, otherwise base container
           const existingContainer = additionalContainers.find(c => c.type === 'channel' && c.targetId === activeChannelId);
-          const feedElement = existingContainer ? document.getElementById(`chat-body-feed-${existingContainer.container.id}`) : null; // Do not load in base container
-          if(feedElement) loadChannelConversation(activeChannelId, feedElement);
-        }
-      }
-    )
-    .subscribe();
-
-  // 3) **Channel membership** subscription for invites
-  // If a new row is inserted with user_id = currentUser.id and is_accepted=false, show overlay
-  supabaseClient
-    .channel("channel-invites")
-    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "channel_members" },
-      async payload => {
-        const row = payload.new;
-        // If this row belongs to me, and is_accepted=false => overlay
-        if (row.user_id === currentUser.id && row.is_accepted === false) {
-          showInviteOverlay(row);
+          const feedElement = existingContainer
+              ? document.getElementById(`chat-body-feed-${existingContainer.container.id}`)
+              : null;
+          if (feedElement) loadChannelConversation(activeChannelId, feedElement);
         }
       }
     )
@@ -994,11 +581,9 @@ function initRealtimeSubscriptions() {
 }
 
 /**************************************************/
-/* Load & Render DM & Channel logic from before   */
+/* Load & Render DM & Channel logic              */
 /**************************************************/
 async function loadRecentDMs(currentContainer) {
-  // (same logic as you had for listing recent DMs sorted by date)
-  // plus post-processing to replace userId with username
   const listEl = currentContainer.querySelector(".chat-body-list");
   listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading recent DMs...</div>`;
 
@@ -1009,7 +594,7 @@ async function loadRecentDMs(currentContainer) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error loading DMs:", error);
+    console.error("loadRecentDMs - Error loading DMs:", error);
     listEl.innerHTML = `<div style="padding:8px;">Failed to load DMs</div>`;
     return;
   }
@@ -1019,18 +604,24 @@ async function loadRecentDMs(currentContainer) {
     return;
   }
 
+  // Grab the most recent DM with each user
   const recentMap = new Map();
   for (const dm of allDMs) {
-    const otherUser = (dm.sender_id === currentUser.id) ? dm.recipient_id : dm.sender_id;
+    const otherUser = (dm.sender_id === currentUser.id)
+      ? dm.recipient_id
+      : dm.sender_id;
     if (!recentMap.has(otherUser)) {
       recentMap.set(otherUser, dm);
     }
   }
-  const recentList = Array.from(recentMap.values()).sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+  const recentList = Array.from(recentMap.values())
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
 
   let html = "";
   for (const dmRow of recentList) {
-    const otherUser = (dmRow.sender_id === currentUser.id) ? dmRow.recipient_id : dmRow.sender_id;
+    const otherUser = (dmRow.sender_id === currentUser.id)
+      ? dmRow.recipient_id
+      : dmRow.sender_id;
     html += `
       <div class="chat-user-item" data-userid="${otherUser}">
         <span id="dm-name-${otherUser}">DM with user: ${otherUser}</span>
@@ -1040,15 +631,17 @@ async function loadRecentDMs(currentContainer) {
     `;
   }
   listEl.innerHTML = html;
+
   const items = listEl.querySelectorAll(".chat-user-item");
   items.forEach(item => {
     item.addEventListener("click", async () => {
       const userId = item.getAttribute("data-userid");
       activeDMUserId = userId;
-      openNewChatContainer('dm', userId); // Open new container on DM selection
+      openNewChatContainer('dm', userId);
     });
   });
 
+  // Fill in known user info
   const uniqueUserIds = Array.from(recentMap.keys());
   await fetchAndCacheMultipleUsers(uniqueUserIds);
   for (const userId of uniqueUserIds) {
@@ -1063,6 +656,10 @@ async function loadRecentChannels(currentContainer) {
   const listEl = currentContainer.querySelector(".chat-body-list");
   listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading channels...</div>`;
 
+  // -----------------------------------------------------
+  // IMPORTANT FIX: Use messages!channel_id(...) so Supabase
+  // recognizes the relationship to messages by channel_id.
+  // -----------------------------------------------------
   const { data, error } = await supabaseClient
     .from("channel_members")
     .select(`
@@ -1071,7 +668,7 @@ async function loadRecentChannels(currentContainer) {
       channels (
         id,
         channel_name,
-        messages (
+        messages!channel_id (
           created_at
         )
       )
@@ -1079,25 +676,27 @@ async function loadRecentChannels(currentContainer) {
     .eq("user_id", currentUser.id);
 
   if (error) {
-    console.error("Error loading user channels:", error);
+    console.error("loadRecentChannels - Error loading user channels:", error);
     listEl.innerHTML = `<div style="padding:8px;">Failed to load channels</div>`;
     return;
   }
 
-  // Filter out the ones where is_accepted=false => not accepted yet
-  const acceptedRows = (data||[]).filter(row => row.is_accepted !== false);
+  // Filter out rows where is_accepted === false if that matters
+  const acceptedRows = (data || []).filter(row => row.is_accepted !== false);
 
   if (!acceptedRows.length) {
-    listEl.innerHTML = `<div style="padding:8px;">No joined channels. Create or accept an invite!</div>`;
+    listEl.innerHTML = `<div style="padding:8px;">No joined channels. Create one!</div>`;
     return;
   }
 
   // gather last message times
   const channelsWithTime = acceptedRows.map(r => {
     if (!r.channels) return null;
-    let lastMessageTime=0;
+    let lastMessageTime = 0;
     if (r.channels.messages && r.channels.messages.length) {
-      lastMessageTime = Math.max(...r.channels.messages.map(m=> new Date(m.created_at).getTime()));
+      lastMessageTime = Math.max(
+        ...r.channels.messages.map(m => new Date(m.created_at).getTime())
+      );
     }
     return {
       id: r.channels.id,
@@ -1106,10 +705,12 @@ async function loadRecentChannels(currentContainer) {
     };
   }).filter(Boolean);
 
-  channelsWithTime.sort((a,b)=> b.lastMessageTime - a.lastMessageTime);
+  channelsWithTime.sort((a,b) => b.lastMessageTime - a.lastMessageTime);
 
   const html = channelsWithTime.map(ch => {
-    const lastDate = ch.lastMessageTime? new Date(ch.lastMessageTime).toLocaleString() : "No messages yet";
+    const lastDate = ch.lastMessageTime
+      ? new Date(ch.lastMessageTime).toLocaleString()
+      : "No messages yet";
     return `
       <div class="chat-channel-item" data-ch-id="${ch.id}">
         #${ch.channel_name}
@@ -1120,15 +721,15 @@ async function loadRecentChannels(currentContainer) {
   listEl.innerHTML = html;
 
   Array.from(listEl.querySelectorAll(".chat-channel-item")).forEach(item => {
-    item.addEventListener("click", () => {
+    item.addEventListener("click", (e) => {
       const chId = item.getAttribute("data-ch-id");
-      openNewChatContainer('channel', chId); // Open new container on channel selection
+      openNewChatContainer('channel', chId);
     });
   });
 }
 
 /**************************************************/
-/* Load DM or Channel conversation as before      */
+/* Load DM or Channel conversation                */
 /**************************************************/
 async function loadDMConversation(userId, feedElement) {
   feedElement.innerHTML = `<div style="padding:8px;">Loading messages...</div>`;
@@ -1137,7 +738,8 @@ async function loadDMConversation(userId, feedElement) {
     .from("direct_messages")
     .select("*")
     .or(orClause)
-    .order("created_at",{ ascending: true});
+    .order("created_at", { ascending: true });
+
   if (error) {
     console.error("Error loading DMs:", error);
     feedElement.innerHTML = `<div style="padding:8px;">Failed to load messages</div>`;
@@ -1152,33 +754,54 @@ async function loadChannelConversation(chId, feedElement) {
     .from("messages")
     .select("*")
     .eq("channel_id", chId)
-    .order("created_at",{ ascending: true});
+    .order("created_at", { ascending: true });
+
   if (error) {
     console.error("Error loading channel messages:", error);
     feedElement.innerHTML = `<div style="padding:8px;">Failed to load messages</div>`;
     return;
   }
-  renderMessages(data,'channel', feedElement);
+  renderMessages(data, 'channel', feedElement);
 }
 
 /**************************************************/
 /* Render messages, handle send, etc.            */
 /**************************************************/
-function renderMessages(arr, mode, feedElement) {
-  feedElement.innerHTML="";
-  arr.forEach(msg => {
+async function renderMessages(arr, mode, feedElement) {
+  feedElement.innerHTML = "";
+  for (const msg of arr) {
     const div = document.createElement("div");
     div.classList.add("chat-message");
-    const senderId = mode==='dm'? msg.sender_id : msg.user_id;
-    if (senderId===currentUser.id) {
+    const senderId = (mode === 'dm') ? msg.sender_id : msg.user_id;
+    if (senderId === currentUser.id) {
       div.classList.add("sent");
     } else {
       div.classList.add("received");
     }
-    div.innerHTML = msg.content || "[No text]";
+
+    // Fetch user info for initials
+    const userInfo = await fetchUser(senderId);
+    const initials = getInitials(userInfo);
+
+    div.innerHTML = `<span class="user-initials">${initials}</span> ${msg.content || "[No text]"}`;
     feedElement.appendChild(div);
-  });
+  }
   feedElement.scrollTop = feedElement.scrollHeight;
+}
+
+function getInitials(user) {
+  if (!user) return '??';
+  let name = user.username || user.first_name || user.last_name || 'User';
+  const parts = name.split(' ');
+  let initials = '';
+  if (parts.length >= 2) {
+    initials = (parts[0][0] || '') + (parts[1][0] || '');
+  } else if (parts.length === 1) {
+    initials = (parts[0].substring(0, 2) || '??');
+  } else {
+    return '??';
+  }
+  return initials.toUpperCase();
 }
 
 async function handleSendMessage(event, currentContainer) {
@@ -1187,34 +810,55 @@ async function handleSendMessage(event, currentContainer) {
   if (!text) return;
 
   const containerData = additionalContainers.find(c => c.container === currentContainer);
-  if (!containerData) return;
-
-  if (containerData.type === 'dm') {
-    const { error } = await supabaseClient
-      .from("direct_messages")
-      .insert([{ sender_id: currentUser.id, recipient_id: containerData.targetId, content: text }]);
-    if (error) {
-      console.error("Error sending DM:", error);
-      return;
-    }
-    loadDMConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
-  } else if (containerData.type === 'channel') {
-    const { error } = await supabaseClient
-      .from("messages")
-      .insert([{ channel_id: containerData.targetId, user_id: currentUser.id, content: text }]);
-    if (error) {
-      console.error("Error sending channel msg:", error);
-      return;
-    }
-    loadChannelConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
+  // If it's actually the base container sending a message, find that
+  // (the base container won't be in additionalContainers)
+  let isBaseContainer = false;
+  if (!containerData && currentContainer.id === 'base-chat-container') {
+    isBaseContainer = true;
   }
+
+  if (!containerData && !isBaseContainer) {
+    return;
+  }
+
+  if (containerData) {
+    // Additional container
+    if (containerData.type === 'dm') {
+      const { error } = await supabaseClient
+        .from("direct_messages")
+        .insert([{
+          sender_id: currentUser.id,
+          recipient_id: containerData.targetId,
+          content: text
+        }]);
+      if (error) {
+        console.error("Error sending DM:", error);
+        return;
+      }
+      loadDMConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
+    } else if (containerData.type === 'channel') {
+      await ensureChannelMembership(containerData.targetId); // ensure membership
+      const { error } = await supabaseClient
+        .from("messages")
+        .insert([{
+          channel_id: containerData.targetId,
+          user_id: currentUser.id,
+          content: text
+        }]);
+      if (error) {
+        console.error("Error sending channel msg:", error);
+        return;
+      }
+      loadChannelConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
+    }
+  } else {
+    // If needed, handle base container message sending here
+    console.log("Base container: no active conversation to send to in this simplified code.");
+  }
+
   inp.value = "";
 }
 
-
-/**************************************************/
-/* Minimization, etc.                             */
-/**************************************************/
 function onMinimizeClick(e, currentContainer) {
   e.stopPropagation();
   chatMinimized = !chatMinimized;
@@ -1226,7 +870,20 @@ function onMinimizeClick(e, currentContainer) {
 }
 
 function onHeaderClick(e, currentContainer) {
-  if (e.target.classList.contains("chat-minimize-btn") || e.target.classList.contains("chat-close-btn")) return;
+  if (
+    e.target.classList.contains("chat-close-btn")
+  ) return; // Removed minimize button class check
+
+  const minimized = currentContainer.classList.contains("chat-minimized");
+  currentContainer.classList.toggle("chat-minimized", !minimized);
+}
+
+function onHeaderClickChannel(e, currentContainer) {
+  if (
+    e.target.classList.contains("chat-leave-btn") ||
+    e.target.classList.contains("chat-close-btn")
+  ) return; // Removed minimize button class check
+
   const minimized = currentContainer.classList.contains("chat-minimized");
   currentContainer.classList.toggle("chat-minimized", !minimized);
 }
@@ -1236,7 +893,7 @@ function onHeaderClick(e, currentContainer) {
 /* Utility fetch & cache user info               */
 /**************************************************/
 async function fetchAndCacheMultipleUsers(userIds) {
-  const needed = userIds.filter(id=> !userInfoCache[id]);
+  const needed = userIds.filter(id => !userInfoCache[id]);
   if (!needed.length) return;
   const { data, error } = await supabaseClient
     .from("affiliations")
@@ -1246,7 +903,7 @@ async function fetchAndCacheMultipleUsers(userIds) {
     console.error("Error fetch users:", error);
     return;
   }
-  for (const row of data||[]) {
+  for (const row of data || []) {
     userInfoCache[row.user_id] = row;
   }
 }
@@ -1279,11 +936,10 @@ async function fetchChannel(channelId) {
   return data;
 }
 
-
 function getDisplayName(u) {
   if (!u) return "[Unknown]";
   const { username, first_name, last_name } = u;
   if (username) return username;
-  const full = (first_name||"") + " " + (last_name||"");
+  const full = (first_name || "") + " " + (last_name || "");
   return full.trim() || "[No name]";
 }
