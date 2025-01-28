@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiki</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+     <!-- Link to the main CSS file -->
+    <link rel="stylesheet" href="css/projects.css">
+      <!-- Link to the wiki CSS file -->
+    <link rel="stylesheet" href="css/wiki.css">
+     <!-- Font Awesome CSS (using CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Link to the Settings Component CSS -->
+     <link rel="stylesheet" href="css/settings.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-top">
+                <div class="logo">
+                    <img src="assets/logo.png" alt="Logo">
+                    <span>Collaborative Data Platform</span>
+                </div>
+            </div>
+
+            <ul class="nav-list">
+                <li>
+                    <a href="projects.html">
+                        <i class="fa-solid fa-table-list"></i>
+                        <span class="nav-item">Projects</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="forum.html">
+                       <i class="fa-solid fa-comments"></i>
+                        <span class="nav-item">Forum</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="data_visualization.html">
+                        <i class="fa-solid fa-database"></i>
+                        <span class="nav-item">Data Visualization</span>
+                    </a>
+                </li>
+                 <li>
+                    <a href="wiki.html" class="active">
+                        <i class="fa-solid fa-book"></i>
+                        <span class="nav-item">Wiki</span>
+                    </a>
+                </li>
+            </ul>
+              <div class="sidebar-bottom">
+               <button id="logout-btn" class="nav-item logout-btn">
+                   <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                  <span class="nav-item">Logout</span>
+               </button>
+             </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                 <div class="user-info">
+                   <i class="fa-solid fa-user" id="profile-btn"></i>
+                    <i class="fa-solid fa-bell"></i>
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+                  <div class="dark-mode-toggle">
+                    <span id="theme-text">Light Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="dark-mode-checkbox">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="wiki-container">
+                    <h1>Wiki</h1>
+                    <div class="search-bar">
+                       <input type="text" placeholder="Search Wiki Articles...">
+                       <button class="search-button">
+                         <i class="fa-solid fa-search"></i>
+                        </button>
+                    </div>
+                    <div class="wiki-content">
+                        <div class="wiki-sidebar">
+                            <h2>Categories</h2>
+                             <ul class="category-list">
+                                 <li><a href="#">Project Management</a></li>
+                                 <li><a href="#">Data Analysis</a></li>
+                                 <li><a href="#">Software Development</a></li>
+                                  <li><a href="#">Team Collaboration</a></li>
+                                  <li><a href="#">Best Practices</a></li>
+                              </ul>
+                        </div>
+                         <div class="article-list">
+                             <h2>Latest Articles</h2>
+                             <div class="article-card">
+                                 <h3><a href="#">Introduction to the Platform</a></h3>
+                                  <p>Learn about the core functionalities of the platform.</p>
+                                   <div class="article-meta">
+                                         <span>Last updated: 2023-10-05</span>
+                                        <span>By Admin</span>
+                                  </div>
+                             </div>
+                             <div class="article-card">
+                                 <h3><a href="#">How to Create a Project</a></h3>
+                                   <p>Step-by-step guide to initiate a project.</p>
+                                     <div class="article-meta">
+                                        <span>Last updated: 2023-10-04</span>
+                                        <span>By Mical</span>
+                                  </div>
+                            </div>
+                            <div class="article-card">
+                                 <h3><a href="#">Using Mapping Tools</a></h3>
+                                  <p>Instructions on how to effectively use mapping functionalities.</p>
+                                    <div class="article-meta">
+                                       <span>Last updated: 2023-10-03</span>
+                                        <span>By Admin</span>
+                                  </div>
+                             </div>
+                         </div>
+                        <div class="wiki-right-side">
+                            <h2>Popular Tags</h2>
+                                <div class="tag-container">
+                                 <button class="tag-button">Project Planning</button>
+                                <button class="tag-button">Data Import</button>
+                                 <button class="tag-button">Version Control</button>
+                                  <button class="tag-button">API Usage</button>
+                                 <button class="tag-button">Meeting Minutes</button>
+                                 <button class="tag-button">Analytics</button>
+                                 <button class="tag-button">Troubleshooting</button>
+                                  <button class="tag-button">UI Design</button>
+                            </div>
+                            <h2>Recent Edits</h2>
+                            <ul class="recent-edits">
+                                 <li><a href="#">Project Overview updated</a> <span>2 hours ago</span></li>
+                                 <li><a href="#">Data Security policy changed</a> <span>6 hours ago</span></li>
+                                <li><a href="#">Meeting Guidelines reviewed</a> <span>1 day ago</span></li>
+                             </ul>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    </div>
+        <div class="overlay" id="profile-overlay">
+        <div class="profile-modal">
+            <span class="close-btn" id="close-profile">×</span>
+            <h2>Your Profile</h2>
+            <div class="profile-icon-container">
+                <div class="profile-icon" id="profile-icon-container">
+                    <img id="profile-image" src="assets/profile_icon.png" alt="Profile Icon">
+                </div>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+
+            <div id="profile-content">
+                <!-- Profile data will be loaded here -->
+            </div>
+        </div>
+    </div>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.min.js"></script>
+    <!-- Link to the Supabase JS file -->
+    <script src="js/supabase.js"></script>
+      <!-- Link to the Settings Component JS -->
+   <script src="js/projects.js"></script>
+    <script src="js/chat.js"></script>
+      <!-- Dark Mode Toggle Script -->
+   <script>
+        const toggleSwitch = document.getElementById('dark-mode-checkbox');
+         const themeText = document.getElementById('theme-text');
+        const currentTheme = localStorage.getItem('theme');
+
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            toggleSwitch.checked = true;
+            themeText.textContent = 'Dark Mode';
+        }
+
+        toggleSwitch.addEventListener('change', function () {
+            if (this.checked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+                 themeText.textContent = 'Dark Mode';
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+                 themeText.textContent = 'Light Mode';
+            }
+        });
+    </script>
+</body>
+
+</html>

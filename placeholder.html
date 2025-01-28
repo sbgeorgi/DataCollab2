@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Link to the CSS file -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Link to the Settings Component CSS -->
+    <link rel="stylesheet" href="css/settings.css">
+    <!-- Font Awesome CSS (using CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmD/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="settings-icon">
+            <img src="assets/settings.png" alt="Settings Icon" id="settings-btn">
+        </div>
+        <h1>Welcome to the Collaborative Data Platform</h1>
+        <!-- Add more content or navigation as needed -->
+        <div class="dashboard-grid">
+            <div class="dashboard-container">
+                <a href="projects.html" style="text-decoration: none; color: inherit;">
+                    <h2>Projects</h2>
+                </a>
+            </div>
+            <div class="dashboard-container">
+                <a href="Forum.html" style="text-decoration: none; color: inherit;">
+                    <h2>Forum</h2>
+                </a>
+            </div>
+            <div class="dashboard-container">
+                <a href="Data_Visualization.html" style="text-decoration: none; color: inherit;">
+                    <h2>Data Visualization</h2>
+                </a>
+            </div>
+            <div class="dashboard-container">
+                <a href="Wiki.html" style="text-decoration: none; color: inherit;">
+                    <h2>Wiki</h2>
+                </a>
+            </div>
+        </div>
+        <button id="logout-btn" class="btn">Logout</button>
+    </div>
+
+    <div class="overlay" id="profile-overlay">
+        <div class="profile-modal">
+            <span class="close-btn" id="close-profile">×</span>
+            <h2>Your Profile</h2>
+            <div class="profile-icon-container">
+                <div class="profile-icon" id="profile-icon-container">
+                    <img id="profile-image" src="assets/profile_icon.png" alt="Profile Icon">
+                </div>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+
+            <div id="profile-content">
+                <!-- Profile data will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.min.js"></script>
+    <!-- Link to the Supabase JS file -->
+    <script src="js/supabase.js"></script>
+    <!-- Link to the Settings Component JS -->
+    <script src="js/settings.js"></script>
+</body>
+
+</html>

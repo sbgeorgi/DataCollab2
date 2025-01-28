@@ -1,0 +1,477 @@
+/* Reset some default styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Import Google Font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
+/* Body styling */
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #71b7e6, #9b59b6);
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background 0.5s ease;
+}
+
+/* Container styling */
+.container {
+    background: #fff;
+    padding: 40px 30px;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 600px; /* Adjusted for form width */
+    text-align: center;
+    animation: fadeIn 1s ease-out;
+}
+
+/* Form styling */
+.form h2 {
+    margin-bottom: 25px;
+    color: #333;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-weight: 500;
+}
+
+.required {
+    color: #e74c3c;
+}
+
+/* Input Wrapper */
+.input-wrapper {
+    position: relative;
+}
+
+/* Enhanced Input Types for Select2 and other inputs */
+.input-wrapper select,
+.input-wrapper input[type="email"],
+.input-wrapper input[type="password"],
+.input-wrapper input[type="text"],
+.input-wrapper input[type="url"],
+.input-wrapper input[type="tel"] { /* Included additional input types */
+    width: 100%;
+    padding: 14px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.input-wrapper select:focus,
+.input-wrapper input[type="email"]:focus,
+.input-wrapper input[type="password"]:focus,
+.input-wrapper input[type="text"]:focus,
+.input-wrapper input[type="url"]:focus,
+.input-wrapper input[type="tel"]:focus { /* Included additional input types */
+    border-color: #9b59b6;
+    outline: none;
+    box-shadow: 0 0 5px rgba(155, 89, 182, 0.5);
+}
+
+.input-wrapper .icon {
+    position: absolute;
+    top: 50%;
+    right: 15px; /* Adjusted for consistency */
+    transform: translateY(-50%);
+    color: #9b59b6;
+    font-size: 18px;
+    pointer-events: none;
+}
+
+/* Hide Password Toggle Button Styling (if applicable) */
+.input-wrapper .toggle-password-btn {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.input-wrapper .toggle-password-btn img {
+    height: 20px;
+    width: 20px;
+}
+
+/* Checkbox Group (if applicable) */
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.checkbox-group input {
+    width: 18px;
+    height: 18px;
+    accent-color: #9b59b6;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+.checkbox-group label {
+    font-size: 14px;
+    color: #555;
+    cursor: pointer;
+}
+
+/* Button Styling */
+.btn {
+    width: 100%;
+    padding: 14px;
+    background: #9b59b6;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 5px 15px rgba(155, 89, 182, 0.4);
+}
+
+.btn:hover {
+    background: #8e44ad;
+    transform: translateY(-2px);
+}
+
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 3px 10px rgba(155, 89, 182, 0.4);
+}
+
+/* Message Styling */
+.message {
+    margin-top: 15px;
+    color: #e74c3c;
+    font-size: 14px;
+    transition: opacity 0.3s;
+}
+
+.message.success {
+    color: #2ecc71;
+}
+
+/* Redirect Message Styling (if applicable) */
+.redirect-message {
+    margin-top: 25px;
+    color: #666;
+    font-size: 14px;
+}
+
+.redirect-message a {
+    color: #9b59b6;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s;
+}
+
+.redirect-message a:hover {
+    color: #8e44ad;
+    text-decoration: underline;
+}
+
+/* Password Strength Meter Styling (Only for Register Page, if applicable) */
+#password-strength-meter {
+    width: 100%;
+    height: 10px;
+    background-color: #eee;
+    border-radius: 5px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+#password-strength-bar {
+    height: 100%;
+    width: 0%;
+    background-color: red;
+    border-radius: 5px;
+    transition: width 0.4s ease, background-color 0.4s ease;
+}
+
+#password-strength-text {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+}
+
+/* Strength Levels */
+#password-strength-bar.strength-weak {
+    width: 25%;
+    background-color: #e74c3c;
+}
+
+#password-strength-bar.strength-fair {
+    width: 50%;
+    background-color: #f1c40f;
+}
+
+#password-strength-bar.strength-good {
+    width: 75%;
+    background-color: #2ecc71;
+}
+
+#password-strength-bar.strength-strong {
+    width: 100%;
+    background-color: #27ae60;
+}
+
+/* Placeholder page styling */
+.container h1 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.container p {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Select2 Custom Styles */
+.select2-container--default .select2-selection--single {
+    height: 56px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 14px 15px;
+    font-size: 16px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #333;
+    line-height: 28px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 56px;
+    right: 15px;
+}
+
+.select2-results__option {
+    display: flex;
+    align-items: center;
+}
+
+.select2-results__option img {
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+    border-radius: 50%;
+}
+
+/* Responsive Design */
+@media (max-width: 500px) {
+    .container {
+        padding: 30px 20px;
+    }
+
+    .input-wrapper select,
+    .input-wrapper input[type="email"],
+    .input-wrapper input[type="password"],
+    .input-wrapper input[type="text"],
+    .input-wrapper input[type="url"],
+    .input-wrapper input[type="tel"] { /* Included additional input types */
+        padding: 14px 15px;
+    }
+
+    .input-wrapper .icon {
+        right: 15px;
+    }
+
+    .input-wrapper .toggle-password-btn {
+        right: 15px;
+    }
+}
+
+
+/* Modern Dashboard Styling
+ * Features:
+ * - Glassmorphism effects
+ * - Smooth animations
+ * - Responsive grid layout
+ * - Accessibility improvements
+ * - Custom properties for easy theming
+ */
+
+ :root {
+    --primary-color: #6366f1;
+    --primary-hover: #4f46e5;
+    --background-start: #f8fafc;
+    --background-end: #f1f5f9;
+    --card-background: rgba(255, 255, 255, 0.9);
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --border-radius: 16px;
+    --transition-speed: 0.3s;
+  }
+  
+  /* Main Dashboard Layout */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    padding: 1.5rem;
+    max-width: 1920px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, var(--background-start), var(--background-end));
+  }
+  
+  /* Container Styling */
+  .dashboard-container {
+    position: relative;
+    background: var(--card-background);
+    backdrop-filter: blur(10px);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -2px rgba(0, 0, 0, 0.05),
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+    transition: all var(--transition-speed) cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Hover Effects */
+  .dashboard-container:hover {
+    transform: translateY(-4px) scale(1.01);
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 8px 10px -6px rgba(0, 0, 0, 0.05),
+      0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+  }
+  
+  /* Typography */
+  .dashboard-container h2 {
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    letter-spacing: -0.025em;
+    line-height: 1.4;
+  }
+  
+  .dashboard-container p {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+  
+  /* Stats and Metrics */
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    line-height: 1.2;
+    margin: 0.5rem 0;
+  }
+  
+  /* Loading State */
+  .dashboard-container.loading {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .dashboard-container.loading::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent
+    );
+    animation: loading 1.5s infinite;
+  }
+  
+  /* Animations */
+  @keyframes loading {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+      padding: 1rem;
+    }
+    
+    .dashboard-container {
+      padding: 1.25rem;
+    }
+    
+    .metric-value {
+      font-size: 1.75rem;
+    }
+  }
+  
+  /* Accessibility Improvements */
+  @media (prefers-reduced-motion: reduce) {
+    .dashboard-container {
+      transition: none;
+    }
+    
+    .dashboard-container:hover {
+      transform: none;
+    }
+    
+    .dashboard-container.loading::after {
+      animation: none;
+    }
+  }
+  
+  /* Print Styles */
+  @media print {
+    .dashboard-grid {
+      display: block;
+      background: none;
+    }
+    
+    .dashboard-container {
+      page-break-inside: avoid;
+      border: 1px solid #ddd;
+      box-shadow: none;
+      margin-bottom: 1rem;
+    }
+  }
+
+/* Additional Styles for Read-Only Username Field */
+input[readonly] {
+    background-color: #f0f0f0;
+    cursor: not-allowed;
+}

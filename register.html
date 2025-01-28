@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Link to the CSS file -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome CSS (using CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pV+4K+F/M6kbFWe4KJwQjK2uV+1ryx4jhc2bT7k3mq6/l6I9+uFhJfE6rjN6XKp6Ot1bTcXO/E1aH5iucS1xA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="container">
+        <form id="register-form" class="form">
+            <h2>Create Account</h2>
+            <div class="input-group">
+                <label for="register-email">Email</label>
+                <div class="input-wrapper">
+                    <input type="email" id="register-email" required placeholder="Enter your email">
+                    <i class="fas fa-envelope icon"></i>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="register-password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="register-password" required placeholder="Enter your password">
+                    <i class="fas fa-lock icon"></i>
+                    <button type="button" class="toggle-password-btn" id="toggle-password">
+                        <img src="assets/password.png" alt="Show Password" />
+                    </button>
+                </div>
+                <!-- Password Strength Meter -->
+                <div id="password-strength-meter" aria-hidden="true">
+                    <div id="password-strength-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                </div>
+                <p id="password-strength-text">Password must be at least 8 characters long and include uppercase letters, lowercase letters, numbers, and special characters.</p>
+            </div>
+            <div class="input-group">
+                <label for="register-password-confirm">Confirm Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="register-password-confirm" required placeholder="Confirm your password">
+                    <i class="fas fa-lock icon"></i>
+                    <button type="button" class="toggle-password-btn" id="toggle-password-confirm">
+                        <img src="assets/password.png" alt="Show Password" />
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="btn">Register</button>
+            <p class="message" id="register-message"></p>
+            <p class="redirect-message">Already have an account? <a href="index.html">Login here</a></p>
+        </form>
+    </div>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.min.js"></script>
+    <!-- Link to the JS files -->
+    <script src="js/supabase.js"></script>
+    <script src="js/password-strength.js"></script>
+    <script>
+        // Toggle Password Visibility
+        const togglePassword = document.getElementById('toggle-password');
+        const togglePasswordConfirm = document.getElementById('toggle-password-confirm');
+        const password = document.getElementById('register-password');
+        const passwordConfirm = document.getElementById('register-password-confirm');
+
+        togglePassword.addEventListener('click', () => {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            const img = togglePassword.querySelector('img');
+            if (type === 'password') {
+                img.src = 'assets/password.png';
+                img.alt = 'Show Password';
+            } else {
+                img.src = 'assets/show_password.png';
+                img.alt = 'Hide Password';
+            }
+        });
+
+        togglePasswordConfirm.addEventListener('click', () => {
+            const type = passwordConfirm.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordConfirm.setAttribute('type', type);
+            const img = togglePasswordConfirm.querySelector('img');
+            if (type === 'password') {
+                img.src = 'assets/password.png';
+                img.alt = 'Show Password';
+            } else {
+                img.src = 'assets/show_password.png';
+                img.alt = 'Hide Password';
+            }
+        });
+    </script>
+</body>
+</html>

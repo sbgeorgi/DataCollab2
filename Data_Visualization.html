@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Visualization</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Link to the main CSS file -->
+    <link rel="stylesheet" href="css/projects.css">
+    <!-- Link to the Data Visualization CSS file -->
+    <link rel="stylesheet" href="css/data_visualization.css">
+    <!-- Font Awesome CSS (using CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- Link to the Settings Component CSS -->
+    <link rel="stylesheet" href="css/settings.css">
+    <!-- DataTables CSS -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-top">
+                <div class="logo">
+                    <img src="assets/logo.png" alt="Logo">
+                    <span>Collaborative Data Platform</span>
+                </div>
+            </div>
+
+            <ul class="nav-list">
+                <li>
+                    <a href="projects.html">
+                        <i class="fa-solid fa-table-list"></i>
+                        <span class="nav-item">Projects</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="forum.html">
+                        <i class="fa-solid fa-comments"></i>
+                        <span class="nav-item">Forum</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="data_visualization.html" class="active">
+                        <i class="fa-solid fa-database"></i>
+                        <span class="nav-item">Data Visualization</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="wiki.html">
+                        <i class="fa-solid fa-book"></i>
+                        <span class="nav-item">Wiki</span>
+                    </a>
+                </li>
+            </ul>
+            <div class="sidebar-bottom">
+                <button id="logout-btn" class="nav-item logout-btn">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span class="nav-item">Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="top-bar">
+                <div class="user-info">
+                    <i class="fa-solid fa-user" id="profile-btn"></i>
+                    <i class="fa-solid fa-bell"></i>
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+                <div class="dark-mode-toggle">
+                    <span id="theme-text">Light Mode</span>
+                    <label class="switch">
+                        <input type="checkbox" id="dark-mode-checkbox">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <h1>Data Visualization</h1>
+
+                <div class="project-selection">
+                    <h2>Select a Project</h2>
+                    <div class="project-cards-container" id="visualization-project-cards">
+                        <!-- Project cards will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="data-table-selection" style="display: none;">
+                    <h2>Select a Data Table</h2>
+                    <div id="data-table-vis-buttons">
+                        <!-- Data table buttons will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="data-table-wrapper" style="display: none;">
+                    <h2>Data Table</h2>
+                    <table id="data-table-vis" class="display" style="width:100%"></table>
+                </div>
+
+                <div class="visualization-controls" style="display: none;">
+                    <div>
+                        <label for="chart-type">Chart Type:</label>
+                        <select id="chart-type">
+                            <option value="bar">Bar Chart</option>
+                            <option value="line">Line Chart</option>
+                            <option value="pie">Pie Chart</option>
+                            <option value="scatter">Scatter Chart</option>
+                        </select>
+                    </div>
+                    <button class="action-btn" id="plot-button">Plot Selected Data</button>
+                </div>
+
+                <div class="visualization-output">
+                    <h2>Visualization Output</h2>
+                    <div class="chart-area">
+                        <div class="chart">
+                            <canvas id="myChart"></canvas>
+                        </div>
+                        <div class="chart-details">
+                            <h2>Chart Details</h2>
+                            <p>Select data from the table to visualize.</p>
+                            <ul id="chart-data-details">
+                                <!-- Chart data details will be displayed here -->
+                            </ul>
+                            <!-- Add Trendline Button -->
+                            <button id="add-trendline-button" class="action-btn">Add Trendline</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="overlay" id="profile-overlay">
+        <div class="profile-modal">
+            <span class="close-btn" id="close-profile">×</span>
+            <h2>Your Profile</h2>
+            <div class="profile-icon-container">
+                <div class="profile-icon" id="profile-icon-container">
+                    <img id="profile-image" src="assets/profile_icon.png" alt="Profile Icon">
+                </div>
+                <input type="file" id="file-input" accept="image/*">
+            </div>
+
+            <div id="profile-content">
+                <!-- Profile data will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- jQuery (required for Select2, etc.) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.8.0/dist/umd/supabase.min.js"></script>
+    <!-- Your supabase.js -->
+    <script src="js/supabase.js"></script>
+    <!-- Your custom scripts for data visualization -->
+    <script src="js/data_visualization.js"></script>
+     <!-- Reuse the same projects.js for logout and profile logic -->
+    <script src="js/projects.js"></script>
+    <script src="js/chat.js"></script>
+    <!-- Dark Mode Toggle Script -->
+    <script>
+        const toggleSwitch = document.getElementById('dark-mode-checkbox');
+        const themeText = document.getElementById('theme-text');
+        const currentTheme = localStorage.getItem('theme');
+
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark-mode');
+            toggleSwitch.checked = true;
+            themeText.textContent = 'Dark Mode';
+        }
+
+        toggleSwitch.addEventListener('change', function () {
+            if (this.checked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+                themeText.textContent = 'Dark Mode';
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+                themeText.textContent = 'Light Mode';
+            }
+        });
+    </script>
+</body>
+
+</html>

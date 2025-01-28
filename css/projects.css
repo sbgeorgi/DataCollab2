@@ -1,0 +1,936 @@
+/* General styles */
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
+    color: #333;
+    display: flex;
+    /* Make body take full viewport height */
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    overflow-x: hidden; /* Prevent horizontal scrollbar */
+}
+
+body.dark-mode {
+    background-color: #1e1e1e;
+    color: #f5f5f5;
+}
+
+.container {
+    display: flex;
+    width: 100%;
+    /* Make container take full width */
+    min-height: 100vh;
+    /* Make container take full viewport height */
+}
+
+/* Sidebar styles */
+.sidebar {
+    background-color: #283618;
+    color: #fff;
+    width: 250px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 0 20px 20px 0; /* Rounded edges on right and bottom */
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+    z-index: 100; /* Ensure sidebar is above other content */
+}
+
+.sidebar.dark-mode {
+    background-color: #121212;
+}
+
+.sidebar-top {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 40px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logo img {
+    width: 40px;
+    height: auto;
+}
+
+.logo span {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.nav-list li {
+    margin-bottom: 5px;
+}
+
+.nav-list a {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 20px;
+    border-radius: 30px;
+    transition: background-color 0.3s ease, transform 0.3s ease, color 0.3s ease;
+    background-color: #3a5a40;
+}
+
+.nav-list a:hover,
+.nav-list a.active {
+    background-color: #606c38;
+    transform: translateX(5px);
+    color: #fff;
+}
+
+.nav-list a i {
+    font-size: 20px;
+}
+
+.nav-list a .nav-item {
+    font-size: 15px;
+    /* Reduced font size */
+    font-weight: 600;
+}
+/* Sidebar bottom styles */
+.sidebar-bottom {
+    margin-top: auto;
+    padding: 12px 0px;
+
+}
+.sidebar-bottom .logout-btn {
+  display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #fff;
+    text-decoration: none;
+    padding: 12px 20px;
+    border-radius: 30px;
+    transition: background-color 0.3s ease, transform 0.3s ease, color 0.3s ease;
+    background-color: #3a5a40;
+    border:none;
+    font-size:15px;
+    font-weight:600;
+    cursor:pointer;
+    width: 100%;
+}
+.sidebar-bottom .logout-btn:hover{
+      background-color: #606c38;
+    transform: translateX(5px);
+    color: #fff;
+}
+.sidebar-bottom .logout-btn i {
+     font-size: 20px;
+}
+
+/* Main content styles */
+.main-content {
+    flex-grow: 1;
+    padding: 20px; /* Increased padding for a more spacious feel */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Top bar styles */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px; /* Increased margin for better spacing */
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0; /* Subtle border for separation */
+}
+
+body.dark-mode .top-bar {
+    border-bottom-color: #444;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 25px; /* Increased gap */
+    margin-left: 20px;
+}
+
+.user-info i {
+    font-size: 22px; /* Slightly larger icons */
+    color: #555; /* Darker icons */
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.user-info i:hover {
+    color: #606c38;
+}
+
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Switch styles - No changes here, using existing styles */
+.dark-mode-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dark-mode-toggle span {
+    font-size: 15px;
+    font-weight: 600;
+    color: #555;
+     transition: color 0.3s ease;
+}
+body.dark-mode .dark-mode-toggle span {
+    color: #f5f5f5;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+}
+
+input:checked + .slider {
+    background-color: #606c38;
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px #606c38;
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Rounded sliders */
+.slider.round {
+    border-radius: 34px;
+}
+
+.slider.round:before {
+    border-radius: 50%;
+}
+
+
+/* Content area styles */
+.content-area {
+    background-color: #fff;
+    border-radius: 15px;
+    padding: 25px; /* Increased padding */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); /* More pronounced shadow */
+    flex-grow: 1;
+    max-width: 1600px; /* Further increased max-width for very large screens */
+    margin: 20px auto; /* ADDED: Auto left/right margin for equal spacing, and top/bottom margin */
+    width: 98%; /* Slightly wider content area */
+    transition: background-color 0.3s ease, color 0.3s ease;
+    display: flex;
+    flex-direction: column; /* Add this to allow create-map-btn to stick to bottom */
+    position: relative; /* Add this to content-area to position create-map-btn */
+    min-height: 700px; /* Increased min height */
+}
+
+.content-area.dark-mode {
+    background-color: #2c2c2c;
+    color: #f5f5f5;
+    box-shadow: 0 5px 15px rgba(255, 255, 255, 0.05); /* Shadow for dark mode */
+}
+
+/* Project header styles */
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 35px; /* Increased margin */
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #ccc; /* Dashed line for softer separation */
+    display: none; /* REMOVED: Hiding project header container as requested */
+}
+body.dark-mode .project-header {
+    border-bottom-color: #555; /* Dashed line for softer separation in dark mode */
+}
+
+
+.project-header h1 {
+    font-size: 32px; /* Larger title */
+    margin: 0;
+    color: #283618;
+    transition: color 0.3s ease;
+    display: none; /* Hide the project header from all tabs */
+}
+
+body.dark-mode .project-header h1 {
+    color: #f5f5f5;
+}
+
+.filters {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    display: none; /* REMOVED: Hiding filters container as it is empty now */
+}
+
+
+.filters .fa-xmark {
+    cursor: pointer;
+    color: #999;
+    font-size: 20px;
+    transition: color 0.3s ease;
+    display: none; /* Hide the x mark from filters */
+}
+
+.filters .fa-xmark:hover {
+    color: #606c38;
+}
+
+/* Tabs styles */
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.tab {
+    background: #f0f0f0; /* Light gray background */
+    color: #333; /* Darker text for better contrast */
+    border: none;
+    padding: 12px 28px; /* Slightly larger padding */
+    border-radius: 30px; /* More rounded tabs */
+    cursor: pointer;
+    font-weight: 500; /* Slightly lighter font weight */
+    transition: all 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.08); /* Softer shadow */
+    font-size: 16px; /* Slightly larger font size for tabs */
+}
+
+.tab.active,
+.tab:hover {
+    background: #606c38; /* Green active color */
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15); /* More prominent shadow on active/hover */
+}
+
+body.dark-mode .tab {
+    background: #444; /* Darker tab background in dark mode */
+    color: #ddd; /* Lighter text in dark mode */
+    box-shadow: 0 3px 5px rgba(255, 255, 255, 0.05); /* Shadow for dark mode tabs */
+}
+
+body.dark-mode .tab.active,
+body.dark-mode .tab:hover {
+    background: #606c38;
+    color: #fff;
+    box-shadow: 0 5px 8px rgba(255, 255, 255, 0.1); /* Shadow for active dark mode tabs */
+}
+
+/* Section content styles */
+.section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 25px; /* Increased gap between sections */
+    flex-grow: 1; /* Allow section-content to take up remaining space */
+}
+
+.section {
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.section.active {
+    display: flex;
+}
+
+/* Removed section h2 headers */
+
+.section p {
+    font-size: 16px;
+    color: #555;
+    line-height: 1.6; /* Improved line height for readability */
+    transition: color 0.3s ease;
+}
+
+body.dark-mode .section p {
+    color: #ccc;
+}
+
+/* Action buttons */
+.action-btn {
+    background: #606c38; /* Solid green background */
+    color: #fff;
+    border: none;
+    padding: 12px 30px; /* Increased padding for buttons */
+    border-radius: 30px; /* More rounded buttons */
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    font-size: 16px; /* Slightly larger button text */
+}
+
+.action-btn:hover {
+    background: #283618; /* Darker green on hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+}
+
+body.dark-mode .action-btn {
+    background: #555; /* Darker button background in dark mode */
+}
+
+body.dark-mode .action-btn:hover {
+    background: #606c38; /* Green hover in dark mode */
+}
+
+/* Dark Mode Styles - mostly using existing dark mode styles, just ensuring consistency */
+body.dark-mode .sidebar {
+    background-color: #1e1e1e;
+}
+
+body.dark-mode .content-area {
+    background-color: #2c2c2c;
+    color: #f5f5f5;
+}
+
+body.dark-mode .year-select {
+    background-color: #3a3a3a;
+    color: #f5f5f5;
+    border-color: #606c38;
+}
+
+body.dark-mode .year-select:focus {
+    border-color: #606c38;
+    display: none; /* Hide year select in dark mode */
+}
+
+body.dark-mode .filters .fa-xmark {
+    color: #ccc;
+    display: none; /* Hide x mark in dark mode */
+}
+
+body.dark-mode .filters .fa-xmark:hover {
+    color: #606c38;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .content-area {
+        max-width: 1200px; /* Adjusted max-width for larger screens */
+        width: 98%;
+    }
+}
+
+@media (max-width: 992px) {
+    .content-area {
+        max-width: 96%; /* Further responsive adjustments */
+        width: 96%;
+        padding: 20px;
+    }
+    .project-header h1 {
+        font-size: 30px;
+    }
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        width: 80px; /* Collapsed sidebar width */
+        padding: 15px 10px; /* Adjusted padding */
+        border-radius: 0 15px 15px 0;
+    }
+
+    .logo span {
+        display: none; /* Hide logo text on smaller screens */
+    }
+    .logo img {
+        width: 30px; /* Smaller logo image */
+    }
+
+    .nav-list a {
+        padding: 10px; /* Reduced padding for nav items */
+        justify-content: center; /* Center icons in collapsed sidebar */
+    }
+    .nav-list a span {
+        display: none; /* Hide nav item text in collapsed sidebar */
+    }
+
+    .content-area {
+        padding: 15px; /* Adjusted content area padding */
+        max-width: 100%;
+        width: 100%;
+        border-radius: 0; /* No border radius on smaller screens */
+        margin: 10px auto; /* Adjusted margin for smaller screens, less top/bottom margin */
+    }
+
+    .project-header {
+        display: none; /* Hide project header in responsive view as well */
+    }
+    .project-header h1 {
+        font-size: 26px; /* Smaller header font size */
+    }
+
+    .filters {
+        width: 100%;
+        justify-content: center; /* Center filters */
+        display: none; /* Hide filters in responsive view */
+    }
+
+
+    .tabs {
+        flex-direction: column; /* Stack tabs vertically */
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .tab {
+        width: 100%; /* Full width tabs on smaller screens */
+        text-align: center;
+        padding: 12px; /* Adjust tab padding */
+        border-radius: 15px; /* Less rounded tabs on small screens */
+    }
+
+    .dark-mode-toggle {
+        margin-top: 15px; /* Add margin to dark mode toggle */
+    }
+    .user-info {
+        margin-left: 0; /* Reset user info margin */
+        justify-content: center; /* Center user info icons */
+        gap: 15px;
+    }
+    .top-bar {
+        flex-direction: column; /* Stack top bar items */
+        align-items: center; /* Center items in top bar */
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+}
+
+/* Project Form Styles - No significant changes, keeping consistent */
+.project-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.input-group label {
+    margin-bottom: 8px; /* Slightly increased margin */
+    color: #444; /* Darker label color */
+    font-weight: 600;
+    font-size: 16px; /* Slightly larger label font */
+}
+
+.input-group input,
+.input-group textarea,
+.input-group select {
+    padding: 12px; /* Increased input padding */
+    border: 1px solid #ccc;
+    border-radius: 8px; /* Slightly more rounded inputs */
+    font-size: 16px;
+    transition: border-color 0.3s ease; /* Smooth border color transition */
+}
+.input-group input:focus,
+.input-group textarea:focus,
+.input-group select:focus {
+    border-color: #606c38; /* Highlight color on focus */
+    outline: none; /* Remove default focus outline */
+    box-shadow: 0 0 0 2px rgba(96, 108, 56, 0.2); /* Subtle focus shadow */
+}
+
+
+.input-group textarea {
+    min-height: 150px; /* Slightly taller textarea */
+}
+
+/* Project Cards Container - No significant changes */
+.project-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: space-between; /* Adjust as needed */
+    margin-bottom: 20px;
+}
+
+.project-card {
+    border: 1px solid #ddd; /* Lighter border */
+    padding: 20px; /* Increased padding */
+    border-radius: 10px; /* Slightly more rounded cards */
+    background-color: #fff;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08); /* Softer shadow */
+    flex: 0 0 calc(50% - 20px); /* Two cards per row, adjust if needed */
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease; /* Smooth transitions */
+}
+.project-card:hover {
+    transform: translateY(-3px); /* Slight lift on hover */
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1); /* More pronounced shadow on hover */
+}
+
+/* Selected Project Card */
+.project-card.selected {
+    border-color: #606c38;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); /* More prominent shadow when selected */
+}
+
+/* Button Container - No significant changes */
+.button-container {
+    display: flex;
+    gap: 15px; /* Increased button gap */
+    justify-content: flex-start; /* Align buttons to the start */
+    margin-top: 25px; /* Increased top margin */
+    margin-bottom: 25px;
+    flex-wrap: wrap; /* Allow buttons to wrap */
+}
+
+.button-container .action-btn {
+    width: auto; /* Adjust width as needed */
+    padding: 12px 25px; /* Consistent button padding */
+    /* Other button styles remain the same */
+}
+
+/* Responsive adjustments for project cards - No changes */
+@media (max-width: 768px) {
+    .project-card {
+        flex: 0 0 100%; /* One card per row on smaller screens */
+    }
+}
+/* selected university styles - No changes */
+.select2-results__option--add-university {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            color: green;
+            font-weight: bold;
+            padding: 6px;
+            cursor: pointer;
+        }
+        .select2-results__option--add-university:hover {
+            background-color: #f0f0f0;
+        }
+
+        .select2-results__option--add-university .fa-check {
+            margin-left: 5px;
+        }
+
+        .selected-university-container {
+          margin-top: 10px;
+           display: flex;
+           flex-wrap: wrap;
+           gap: 5px;
+         }
+
+         .selected-university {
+          background-color: #f0f0f0;
+          padding: 5px 10px;
+          border-radius: 5px;
+          display: inline-flex;
+          align-items: center;
+         }
+
+         .selected-university .remove-university {
+          margin-left: 8px;
+          cursor: pointer;
+        }
+
+        /* Data Management Section - Minor adjustments for spacing and card styling */
+#data-management .project-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 25px; /* Increased margin */
+}
+
+  #data-management .button-container {
+    justify-content: center; /* Center the import data button */
+}
+
+
+  #data-management .project-card {
+    border: 1px solid #ddd; /* Lighter border */
+    padding: 20px; /* Increased padding */
+    border-radius: 10px; /* More rounded cards */
+    background-color: #fff;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.08); /* Softer shadow */
+    flex: 0 0 calc(50% - 20px); /* Adjust for the number of cards per row */
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+  #data-management .project-card:hover {
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.1);
+    transform: translateY(-3px);
+  }
+
+  #data-management .project-card.selected {
+    border-color: #606c38;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  #data-management .project-card h3 {
+    margin-top: 0;
+    color: #283618;
+    font-size: 18px; /* Slightly larger card title */
+  }
+
+  /* DataTable Styles - Adjusted margins, padding, and hover effect */
+  table.dataTable {
+    width: 100% !important;
+    margin: 25px 0; /* Increased margin */
+    clear: both;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 15px; /* Slightly reduced font size for table data */
+  }
+
+  table.dataTable thead th,
+  table.dataTable tfoot th {
+    font-weight: 600;
+    color: #444; /* Darker header text */
+    border-bottom: 2px solid #606c38;
+    padding: 12px 10px; /* Increased header padding */
+    text-align: left; /* Align header text to left */
+  }
+
+  table.dataTable td {
+    border-bottom: 1px solid #e0e0e0; /* Lighter cell border */
+    cursor: pointer;
+    padding: 10px; /* Increased cell padding */
+  }
+
+  table.dataTable tbody tr:hover {
+    background-color: #f8f8f8; /* Lighter hover background */
+  }
+
+  /* Selected row in DataTable */
+  table.dataTable tbody tr.selected {
+    background-color: #606c38;
+    color: white;
+  }
+
+  /* DataTable Buttons - No changes */
+  .dataTables_wrapper .dt-buttons .dt-button {
+    background: #606c38;
+    color: #fff !important;
+    border: none;
+    padding: 10px 20px; /* Adjusted button padding */
+    border-radius: 25px;
+    margin-bottom: 10px;
+    font-weight: 500; /* Slightly lighter font weight */
+    transition: all 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+    font-size: 15px; /* Slightly smaller button text */
+  }
+
+  .dataTables_wrapper .dt-buttons .dt-button:hover {
+    background: #283618;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Styles for the cell being edited - No changes */
+  table.dataTable tbody td.editing {
+      padding: 0; /* Remove default padding */
+  }
+
+  table.dataTable tbody td.editing input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      padding: 10px;
+      box-sizing: border-box;
+      outline: none;
+      background-color: #f8f8f8; /* Light background for input */
+      font-size: inherit;
+      font-family: inherit;
+  }
+  /* Dark Mode for DataTable - No changes */
+  body.dark-mode table.dataTable thead th,
+  body.dark-mode table.dataTable tfoot th {
+    color: #f5f5f5;
+  }
+
+  body.dark-mode table.dataTable tbody tr:hover {
+    background-color: #3a3a3a;
+  }
+
+  body.dark-mode table.dataTable tbody tr.selected {
+    background-color: #606c38;
+  }
+
+  body.dark-mode .dataTables_wrapper .dt-buttons .dt-button {
+    background: #555;
+  }
+
+  body.dark-mode .dataTables_wrapper .dt-buttons .dt-button:hover {
+    background: #606c38;
+  }
+
+  body.dark-mode table.dataTable tbody td.editing input{
+    background-color: #424242;
+    color: #fff;
+  }
+
+  /* Responsive - No changes */
+  @media (max-width: 768px) {
+    #data-management .project-card {
+      flex: 0 0 100%; /* One card per row on smaller screens */
+    }
+  }
+
+  #data-table-buttons {
+    display: flex; /* Enable flexbox */
+    justify-content: flex-start; /* Align buttons to the start */
+    gap: 10px; /* Add spacing between buttons */
+    flex-wrap: wrap; /* Allow buttons to wrap to the next line if needed */
+    margin-bottom: 25px; /* Increased margin below the button group */
+    align-items: center; /* Center items vertically */
+}
+
+.data-table-button {
+    background: #606c38;
+    color: #fff !important;
+    border: none;
+    padding: 10px 20px; /* Adjusted button padding */
+    border-radius: 25px;
+    /* margin-bottom: 10px;  Removed margin here as the container now adds spacing */
+    font-weight: 500; /* Slightly lighter font weight */
+    transition: all 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    display: inline-block; /* Necessary to correctly apply padding and margins */
+    font-size: 15px; /* Slightly smaller button text */
+}
+
+.data-table-button:hover {
+    background: #283618;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
+}
+
+.data-table-button.selected {
+    border-color: #606c38;
+    box-shadow: 0 5px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Mapping Tools Section Styles - Adjusted map height, button styling */
+#mapping-tools #map-container {
+    height: 700px; /* Increased height for larger map */
+    width: 100%;
+    margin-bottom: 25px; /* Increased space between map and project cards/map buttons */
+    border-radius: 10px; /* Rounded map container */
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1); /* Softer shadow */
+}
+
+#mapping-tools #project-maps-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px; /* Increased gap between map buttons */
+    margin-bottom: 25px; /* Increased space below map buttons */
+    justify-content: flex-start; /* Align buttons to the start */
+}
+
+#mapping-tools #project-maps-container button {
+    background: #f0f0f0;
+    color: #444; /* Darker button text */
+    border: none;
+    padding: 12px 25px; /* Adjusted button padding */
+    border-radius: 25px;
+    cursor: pointer;
+    font-weight: 500; /* Slightly lighter font weight */
+    transition: all 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: 0 3px 5px rgba(0, 0, 0, 0.1); /* Softer shadow */
+    text-align: center; /* Center text for multiline button names */
+    min-width: 160px; /* Increased min-width for description text */
+    font-size: 15px; /* Slightly smaller button text */
+}
+
+#mapping-tools #project-maps-container button:hover,
+#mapping-tools #project-maps-container button.active {
+    background: #606c38;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 8px rgba(0, 0, 0, 0.15);
+}
+
+#create-map-btn {
+    display: none; /* Hidden by default, shown only in Mapping Tools tab */
+    margin-bottom: 30px !important; /* Increased bottom margin */
+    align-self: center; /* Center the create map button */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Analytics Section Styles */
+#analytics .button-container {
+    justify-content: center; /* Center buttons horizontally */
+    margin-top: 20px; /* Add some top margin */
+    margin-bottom: 20px; /* Add bottom margin for spacing */
+    display: flex; /* Ensure it's a flex container */
+    gap: 10px; /* Spacing between buttons if needed */
+    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+}
+
+#analytics .project-cards-container {
+    margin-bottom: 20px; /* Add margin below project cards */
+}
+
+#analytics > div[style="display:flex; justify-content: center; margin-top: 20px;"] {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    flex-wrap: wrap; /* Allow buttons to wrap */
+    gap: 10px; /* Spacing between buttons */
+}

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Forum</title>
+
+  <!-- Google Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Link to the main CSS file (projects.css) -->
+  <link rel="stylesheet" href="css/projects.css" />
+
+  <!-- Link to the Forum CSS file -->
+  <link rel="stylesheet" href="css/forum.css" />
+
+  <!-- Font Awesome CSS (CDN) -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  />
+
+  <!-- (Optional) Link to the Settings Component CSS -->
+  <link rel="stylesheet" href="css/settings.css" />
+
+  <link rel="stylesheet" href="css/chat.css">
+
+</head>
+
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-top">
+        <div class="logo">
+          <img src="assets/logo.png" alt="Logo" />
+          <span>Collaborative Data Platform</span>
+        </div>
+      </div>
+
+      <ul class="nav-list">
+        <li>
+          <a href="projects.html">
+            <i class="fa-solid fa-table-list"></i>
+            <span class="nav-item">Projects</span>
+          </a>
+        </li>
+        <li>
+          <a href="forum.html" class="active">
+            <i class="fa-solid fa-comments"></i>
+            <span class="nav-item">Forum</span>
+          </a>
+        </li>
+        <li>
+          <a href="data_visualization.html">
+            <i class="fa-solid fa-database"></i>
+            <span class="nav-item">Data Visualization</span>
+          </a>
+        </li>
+        <li>
+          <a href="wiki.html">
+            <i class="fa-solid fa-book"></i>
+            <span class="nav-item">Wiki</span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-bottom">
+        <button id="logout-btn" class="nav-item logout-btn">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          <span class="nav-item">Logout</span>
+        </button>
+      </div>
+    </div>
+    <!-- End of Sidebar -->
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="top-bar">
+        <div class="user-info">
+          <i class="fa-solid fa-user" id="profile-btn"></i>
+          <i class="fa-solid fa-bell"></i>
+          <i class="fa-solid fa-gear"></i>
+        </div>
+        <div class="dark-mode-toggle">
+          <span id="theme-text">Light Mode</span>
+          <label class="switch">
+            <input type="checkbox" id="dark-mode-checkbox" />
+            <span class="slider round"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="content-area" id="forum-content-area">
+        <!-- Forum Container -->
+        <div id="forum-main-container">
+          <!-- 1) If user didn’t specify a project forum, or is just browsing, show all forums here -->
+          <div id="forum-list-container" class="hide-section"></div>
+
+          <!-- 2) Show categories for the chosen forum -->
+          <div id="category-list-container" class="hide-section"></div>
+
+          <!-- 3) Show threads for chosen category -->
+          <div id="thread-list-container" class="hide-section"></div>
+
+          <!-- 4) Show posts for a chosen thread -->
+          <div id="post-list-container" class="hide-section"></div>
+        </div>
+        <!-- End Forum Container -->
+      </div>
+    </div>
+    <!-- End of Main Content -->
+  </div>
+
+  <!-- Profile Overlay -->
+  <div class="overlay" id="profile-overlay">
+    <div class="profile-modal">
+      <span class="close-btn" id="close-profile">×</span>
+      <h2>Your Profile</h2>
+      <div class="profile-icon-container">
+        <div class="profile-icon" id="profile-icon-container">
+          <img
+            id="profile-image"
+            src="assets/profile_icon.png"
+            alt="Profile Icon"
+          />
+        </div>
+        <input type="file" id="file-input" accept="image/*" />
+      </div>
+      <div id="profile-content"></div>
+    </div>
+  </div>
+
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.min.js"></script>
+  <!-- Link to Supabase JS init -->
+  <script src="js/supabase.js"></script>
+  <!-- Include jQuery before projects.js -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+    integrity="sha256-/xUj+3OJ+KIljpjAbgD5PUf7KZOVb/6M44zx7X04FQc="
+    crossorigin="anonymous"></script>
+  <!-- Reuse the same projects.js for logout and profile logic -->
+  <script src="js/projects.js"></script>
+  <!-- Our new forum.js for forum logic -->
+  <script src="js/forum.js"></script>
+  <script src="js/chat.js"></script>
+
+
+  <!-- Dark Mode Toggle Script -->
+  <script>
+    const toggleSwitch = document.getElementById('dark-mode-checkbox');
+    const themeText = document.getElementById('theme-text');
+    const currentTheme = localStorage.getItem('theme');
+
+    if (currentTheme === 'dark') {
+      document.body.classList.add('dark-mode');
+      toggleSwitch.checked = true;
+      themeText.textContent = 'Dark Mode';
+    }
+
+    toggleSwitch.addEventListener('change', function () {
+      if (this.checked) {
+        document.body.classList.add('dark-mode');
+        localStorage.setItem('theme', 'dark');
+        themeText.textContent = 'Dark Mode';
+      } else {
+        document.body.classList.remove('dark-mode');
+        localStorage.setItem('theme', 'light');
+        themeText.textContent = 'Light Mode';
+      }
+    });
+  </script>
+</body>
+</html>

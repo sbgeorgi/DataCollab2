@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Link to the CSS file -->
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome CSS (using CDN) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-pV+4K+F/M6kbFWe4KJwQjK2uV+1ryx4jhc2bT7k3mq6/l6I9+uFhJfE6rjN6XKp6Ot1bTcXO/E1aH5iucS1xA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+    <div class="container">
+        <form id="login-form" class="form">
+            <h2>Welcome Back</h2>
+            <div class="input-group">
+                <label for="login-email">Email</label>
+                <div class="input-wrapper">
+                    <input type="email" id="login-email" required placeholder="Enter your email">
+                    <i class="fas fa-envelope icon"></i>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="login-password">Password</label>
+                <div class="input-wrapper">
+                    <input type="password" id="login-password" required placeholder="Enter your password">
+                    <i class="fas fa-lock icon"></i>
+                    <button type="button" class="toggle-password-btn" id="toggle-password-login">
+                        <img src="assets/password.png" alt="Show Password" />
+                    </button>
+                </div>
+            </div>
+            <div class="checkbox-group">
+                <input type="checkbox" id="persist-login">
+                <label for="persist-login">Keep me logged in</label>
+            </div>
+            <button type="submit" class="btn">Login</button>
+            <p class="message" id="login-message"></p>
+            <p class="redirect-message">Don't have an account? <a href="register.html">Register here</a></p>
+        </form>
+    </div>
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@latest/dist/umd/supabase.min.js"></script>
+    <!-- Link to the JS file -->
+    <script src="js/supabase.js"></script>
+    <!-- Inline Script -->
+    <script>
+        // Toggle Password Visibility for Login Form
+        const togglePasswordLogin = document.getElementById('toggle-password-login');
+        const loginPassword = document.getElementById('login-password');
+
+        togglePasswordLogin.addEventListener('click', () => {
+            const type = loginPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            loginPassword.setAttribute('type', type);
+            const img = togglePasswordLogin.querySelector('img');
+            if (type === 'password') {
+                img.src = 'assets/password.png';
+                img.alt = 'Show Password';
+            } else {
+                img.src = 'assets/show_password.png';
+                img.alt = 'Hide Password';
+            }
+        });
+    </script>
+</body>
+</html>
