@@ -161,45 +161,58 @@
             const selectedUniversitiesContainer = document.getElementById('selected-universities');
             let selectedUniversities = [];
 
-            // Initialize Select2 for University Select with AJAX
+            // Initialize Select2 for University Select with Local JSON File
             $('#university').select2({
-    placeholder: "Search for your university",
-    theme: "bootstrap-5",
-    allowClear: true,
-    ajax: {
-        url: 'https://universities.hipolabs.com/search', // Use HTTPS here
-        dataType: 'json',
-        delay: 250,
-        data: function (params) {
-            return {
-                name: params.term
-            };
-        },
-        processResults: function (data, params) {
-            universityInputValue = params.term;
-            const results = data.map(university => ({
-                id: university.name,
-                text: university.name,
-            }));
+                placeholder: "Search for your university",
+                theme: "bootstrap-5",
+                allowClear: true,
+                ajax: {
+                    transport: function (params, success, failure) {
+                        // Fetch the local JSON file
+                        fetch('assets/world_universities_and_domains.json')
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.json();
+                            })
+                            .then(data => {
+                                // Filter universities based on the input term
+                                const term = params.data.term?.toLowerCase() || '';
+                                const filtered = data.filter(university =>
+                                    university.name.toLowerCase().includes(term)
+                                );
 
-            if (results.length === 0) {
-                results.push({
-                    id: 'add_university_option',
-                    text: 'Add University ' + params.term,
-                    custom: true
-                });
-            }
-            return {
-                results: results
-            };
-        },
-        cache: true
-    },
-    minimumInputLength: 2,
-    templateResult: formatUniversityOption,
-    templateSelection: formatUniversityOptionSelection
-});
+                                // Map the filtered results to Select2's expected format
+                                const results = filtered.map(university => ({
+                                    id: university.name,
+                                    text: university.name,
+                                }));
 
+                                // If no results, provide an option to add a new university
+                                if (results.length === 0 && term.trim() !== '') {
+                                    results.push({
+                                        id: 'add_university_option',
+                                        text: 'Add University "' + params.data.term + '"',
+                                        custom: true
+                                    });
+                                }
+
+                                success({ results });
+                            })
+                            .catch(error => {
+                                console.error('Error loading universities:', error);
+                                failure(error);
+                            });
+                    },
+                    processResults: function (data) {
+                        return data;
+                    },
+                },
+                minimumInputLength: 2,
+                templateResult: formatUniversityOption,
+                templateSelection: formatUniversityOptionSelection,
+            });
 
             // Event listener for when a result is selected
             $('#university').on('select2:select', function (e) {
@@ -212,16 +225,16 @@
                     universityName = selectedData.text;
                 }
 
-                if (!selectedUniversities.includes(universityName)) {
-                     selectedUniversities.push(universityName);
-                     renderSelectedUniversities();
+                if (universityName && !selectedUniversities.includes(universityName)) {
+                    selectedUniversities.push(universityName);
+                    renderSelectedUniversities();
                 }
-                 // Clear the selected option from the dropdown
+                // Clear the selected option from the dropdown
                 $(this).val(null).trigger('change');
-             });
+            });
 
             function renderSelectedUniversities() {
-                 selectedUniversitiesContainer.innerHTML = '';
+                selectedUniversitiesContainer.innerHTML = '';
                 selectedUniversities.forEach(university => {
                     const universityElement = document.createElement('div');
                     universityElement.classList.add('selected-university');
@@ -236,16 +249,16 @@
             selectedUniversitiesContainer.addEventListener('click', function(e) {
                 if (e.target.classList.contains('remove-university')) {
                     const universityToRemove = e.target.getAttribute('data-university');
-                   selectedUniversities = selectedUniversities.filter(university => university !== universityToRemove);
+                    selectedUniversities = selectedUniversities.filter(university => university !== universityToRemove);
                     renderSelectedUniversities();
                 }
             });
 
 
             function formatUniversityOption(state) {
-                 if (!state.id) {
-                     return state.text;
-                 }
+                if (!state.id) {
+                    return state.text;
+                }
 
                 if (state.id === 'add_university_option') {
                     return $(`<span class="select2-results__option--add-university">Add University <i class="fas fa-check"></i></span>`);
@@ -300,22 +313,24 @@
                 const personalWebpage = document.getElementById('personal-webpage').value.trim();
                 const whatsapp = document.getElementById('whatsapp').value.trim();
 
-               if (!firstName || !lastName || !username || !university || !department || !jobTitle || !researchInterests) {
+                // Validate required fields
+                if (!firstName || !lastName || !username || !university || !department || !jobTitle || !researchInterests) {
                     document.getElementById('affiliation-message').innerText = 'Please fill in all required fields.';
                     document.getElementById('affiliation-message').style.color = 'red';
                     return;
                 }
 
-                  // Updated URL validation - now only if personalWebpage has a value
+                // Validate Personal Webpage URL (if provided)
                 if (personalWebpage) {
-                  const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/\S*)?$/i;
-                  if (!urlPattern.test(personalWebpage)) {
-                    document.getElementById('affiliation-message').innerText = 'Please enter a valid URL for your personal webpage.';
-                    document.getElementById('affiliation-message').style.color = 'red';
-                    return;
-                  }
+                    const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/\S*)?$/i;
+                    if (!urlPattern.test(personalWebpage)) {
+                        document.getElementById('affiliation-message').innerText = 'Please enter a valid URL for your personal webpage.';
+                        document.getElementById('affiliation-message').style.color = 'red';
+                        return;
+                    }
                 }
 
+                // Validate WhatsApp number (if provided)
                 if (whatsapp) {
                     const phonePattern = /^\+?[1-9]\d{1,14}$/;
                     if (!phonePattern.test(whatsapp)) {
@@ -331,6 +346,7 @@
                     if (session) {
                         const userId = session.user.id;
 
+                        // Check if affiliation already exists
                         const { data: existingAffiliation, error: existingError } = await supabaseClient
                             .from('affiliations')
                             .select('*')
@@ -341,13 +357,14 @@
                             document.getElementById('affiliation-message').innerText = 'Affiliation information already exists.';
                             document.getElementById('affiliation-message').style.color = 'red';
                             return;
-                        } else if (existingError.code !== 'PGRST116') {
+                        } else if (existingError.code !== 'PGRST116') { // 'PGRST116' indicates no rows found
                             console.error('Error checking existing affiliation:', existingError);
                             document.getElementById('affiliation-message').innerText = 'An error occurred. Please try again.';
                             document.getElementById('affiliation-message').style.color = 'red';
                             return;
                         }
 
+                        // Insert new affiliation
                         const { data, error } = await supabaseClient
                             .from('affiliations')
                             .insert([
@@ -381,6 +398,7 @@
                             }, 2000);
                         }
                     } else {
+                        // No active session, redirect to login
                         window.location.href = 'index.html';
                     }
                 } catch (err) {

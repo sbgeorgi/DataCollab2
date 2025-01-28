@@ -34,6 +34,27 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.error('Error during session handling:', err);
         alert('An unexpected error occurred. Please try again.');
     }
+
+    // Tab switching logic
+    const tabs = document.querySelectorAll('.tab');
+    const sections = document.querySelectorAll('.section');
+    const projectForm = document.getElementById('project-form');
+
+    // Disable browser's default validation
+    if (projectForm) {
+        projectForm.noValidate = true;
+        projectForm.addEventListener('submit', handleProjectSubmission);
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const sectionId = tab.getAttribute('data-section');
+            setActiveSection(sectionId);
+        });
+    });
+
+    // Initialize Select2 dropdowns
+    initializeSelect2Dropdowns();
 });
 
 // Function to check user's affiliation status
@@ -52,20 +73,12 @@ async function checkAffiliation() {
     }
 }
 
-// Tab switching logic
-const tabs = document.querySelectorAll('.tab');
-const sections = document.querySelectorAll('.section');
-const projectForm = document.getElementById('project-form');
-
-tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        const sectionId = tab.getAttribute('data-section');
-        setActiveSection(sectionId);
-    });
-});
-
 // Function to set the active section
 function setActiveSection(sectionId) {
+    const tabs = document.querySelectorAll('.tab');
+    const sections = document.querySelectorAll('.section');
+    const createMapBtn = document.getElementById('create-map-btn');
+
     // Remove active class from all tabs and sections
     tabs.forEach(t => t.classList.remove('active'));
     sections.forEach(s => s.classList.remove('active'));
@@ -77,19 +90,16 @@ function setActiveSection(sectionId) {
     if (activeSection) activeSection.classList.add('active');
 
     // Load projects or other content based on the active section
-    if (sectionId === 'general' || sectionId === 'data-management' || sectionId === 'mapping-tools' || sectionId === 'analytics' || sectionId === 'edit-project') {
+    if (['general', 'data-management', 'mapping-tools', 'analytics', 'edit-project'].includes(sectionId)) {
         loadProjects(sectionId);
-    } else if (sectionId === 'edit-project') {
-        // Specific logic for edit-project (if needed)
     }
-}
 
-// Initialize Select2 for University Select with AJAX
-initializeSelect2Dropdowns();
-
-// Handle project form submission
-if (projectForm) {
-    projectForm.addEventListener('submit', handleProjectSubmission);
+    // Show/hide Create Map button based on active tab
+    if (sectionId === 'mapping-tools') {
+        createMapBtn.style.display = 'block';
+    } else {
+        createMapBtn.style.display = 'none';
+    }
 }
 
 // Function to initialize Select2 dropdowns
@@ -99,44 +109,92 @@ function initializeSelect2Dropdowns() {
         theme: "bootstrap-5",
         allowClear: true,
         ajax: {
-            url: 'http://universities.hipolabs.com/search',
-            dataType: 'json',
-            delay: 250,
-            data: function (params) {
-                return {
-                    name: params.term
-                };
+            transport: function (params, success, failure) {
+                // Fetch the local JSON file
+                fetch('assets/world_universities_and_domains.json')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Filter universities based on the input term
+                        const term = params.data.term?.toLowerCase() || '';
+                        const filtered = data.filter(university =>
+                            university.name.toLowerCase().includes(term)
+                        );
+
+                        // Map the filtered results to Select2's expected format
+                        const results = filtered.map(university => ({
+                            id: university.name,
+                            text: university.name,
+                        }));
+
+                        // If no results, provide an option to add a new university
+                        if (results.length === 0 && term.trim() !== '') {
+                            results.push({
+                                id: 'add_university_option',
+                                text: 'Add University "' + params.data.term + '"',
+                                custom: true
+                            });
+                        }
+
+                        success({ results });
+                    })
+                    .catch(error => {
+                        console.error('Error loading universities:', error);
+                        failure(error);
+                    });
             },
             processResults: function (data) {
-                const results = data.map(university => ({
-                    id: university.name,
-                    text: university.name
-                }));
-                return {
-                    results: results
-                };
+                return data;
             },
-            cache: true
         },
         minimumInputLength: 2,
         templateResult: formatUniversityOption,
-        templateSelection: formatUniversityOptionSelection
+        templateSelection: formatUniversityOptionSelection,
     };
 
+    // Initialize Select2 for Lead University
     $('#lead-university').select2(commonSelect2Options).on('select2:select', function (e) {
         const selectedData = e.params.data;
-        updateSelectedUniversityContainer('selected-lead-university', selectedData.text, false);
+        let universityName;
+
+        if (selectedData.id === 'add_university_option') {
+            universityName = prompt('Enter the name of the new university:');
+            if (universityName) {
+                updateSelectedUniversityContainer('selected-lead-university', universityName, false);
+            }
+        } else {
+            universityName = selectedData.text;
+            updateSelectedUniversityContainer('selected-lead-university', universityName, false);
+        }
+
         // Keep the selected value in the Select2 dropdown
-        $(this).val(selectedData.id).trigger('change');
+        $(this).val(null).trigger('change');
     });
 
+    // Initialize Select2 for Collaborating Partners
     $('#collaborating-partners').select2(commonSelect2Options).on('select2:select', function (e) {
         const selectedData = e.params.data;
-        updateSelectedUniversityContainer('selected-collaborating-partners', selectedData.text, true);
-        // For multiple selections, trigger change to update the dropdown
-        $(this).trigger('change');
+        let universityName;
+
+        if (selectedData.id === 'add_university_option') {
+            universityName = prompt('Enter the name of the new university:');
+            if (universityName) {
+                updateSelectedUniversityContainer('selected-collaborating-partners', universityName, true);
+            }
+        } else {
+            universityName = selectedData.text;
+            updateSelectedUniversityContainer('selected-collaborating-partners', universityName, true);
+        }
+
+        // Keep the selected value in the Select2 dropdown
+        $(this).val(null).trigger('change');
     });
 
+    // Event listener for removing universities
     $('.selected-university-container').on('click', '.remove-university', function () {
         const universityToRemove = $(this).data('university');
         const containerId = $(this).closest('.selected-university-container').attr('id');
@@ -189,6 +247,11 @@ function formatUniversityOption(state) {
     if (!state.id) {
         return state.text;
     }
+
+    if (state.id === 'add_university_option') {
+        return $('<span class="select2-results__option--add-university">Add University <i class="fas fa-check"></i></span>');
+    }
+
     return $('<span><i class="fas fa-university" style="margin-right: 8px;"></i>' + state.text + '</span>');
 }
 
@@ -197,6 +260,7 @@ function formatUniversityOptionSelection(state) {
     if (!state.id) {
         return state.text;
     }
+
     return $('<span><i class="fas fa-university" style="margin-right: 8px;"></i>' + state.text + '</span>');
 }
 
@@ -204,13 +268,33 @@ function formatUniversityOptionSelection(state) {
 async function handleProjectSubmission(event) {
     event.preventDefault();
 
-    const projectName = document.getElementById('project-name').value;
-    const projectDescription = document.getElementById('project-description').value;
-    const leadUniversity = $('#lead-university').val(); // Get value directly from the dropdown
+    // Custom Validation: Check if Lead University is selected
+    const selectedLeadUniversityElement = document.querySelector('#selected-lead-university .selected-university span');
+    const leadUniversity = selectedLeadUniversityElement ? selectedLeadUniversityElement.textContent.trim() : null;
+
+    if (!leadUniversity) {
+        alert("Please select an item from the list");
+        return;
+    }
+
+    const projectName = document.getElementById('project-name').value.trim();
+    const projectDescription = document.getElementById('project-description').value.trim();
     const projectStatus = document.getElementById('project-status').value;
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    const collaboratingPartners = $('#collaborating-partners').val(); // Get values directly from the dropdown
+    const collaboratingPartnersElements = document.querySelectorAll('#selected-collaborating-partners .selected-university span');
+    const collaboratingPartners = Array.from(collaboratingPartnersElements).map(span => span.textContent.trim());
+
+    // Additional Validation (Optional): Ensure project name and description are not empty
+    if (!projectName) {
+        alert("Project Name is required.");
+        return;
+    }
+
+    if (!projectDescription) {
+        alert("Project Description is required.");
+        return;
+    }
 
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
     if (!session) {
@@ -266,15 +350,17 @@ async function loadProjects(sectionId) {
         return;
     }
 
+    // Modified query: Remove user_id filter to fetch ALL projects
     const { data: projects, error } = await supabaseClient
         .from('projects')
-        .select('*')
-        .eq('user_id', session.user.id);
+        .select('*'); // Removed .eq('user_id', session.user.id)
 
     if (error) {
         console.error('Error fetching projects:', error);
         return;
     }
+
+    console.log("Fetched projects data:", projects); // Log fetched projects
 
     // Find the container for project cards within the section
     let projectCardsContainer = section.querySelector('.project-cards-container');
@@ -658,13 +744,25 @@ profileBtn.addEventListener('click', async () => {
                     activeEditSection = section;
 
                     // Event listener to show accept icon if the user changes the value
-                    editInput.addEventListener('input', () => {
+                    const inputListener = () => {
                         if (editInput.value.trim() !== currentAffiliationData[field]) {
                             acceptButton.style.display = '';
                         } else {
                             acceptButton.style.display = 'none';
                         }
-                    }, { once: true }); // Ensure the listener is added only once per edit session
+                    };
+                    editInput.addEventListener('input', inputListener, { once: true }); // Ensure the listener is added only once per edit session
+
+                    // Reset the display if input is not changed
+                    editInput.addEventListener('blur', () => {
+                        if (acceptButton.style.display === 'none') {
+                            valueDisplay.style.display = '';
+                            editInput.classList.remove('edit-mode');
+                            editButton.style.display = '';
+                            acceptButton.remove();
+                            activeEditSection = null;
+                        }
+                    }, { once: true });
                 });
 
 
@@ -707,7 +805,7 @@ profileBtn.addEventListener('click', async () => {
         }
     } catch (err) {
         console.error('Error fetching data for profile:', err);
-        alert('An error occurred while trying to fetch profile data');
+        alert('An error occurred while trying to fetch profile data.');
     }
 });
 
