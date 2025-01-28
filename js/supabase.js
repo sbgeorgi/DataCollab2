@@ -109,6 +109,9 @@ if (registerForm) {
             const { data, error } = await supabaseClient.auth.signUp({
                 email: email,
                 password: password,
+                options: {
+                    emailRedirectTo: 'https://sbgeorgi.github.io/DataCollab2/index.html',
+                },
             });
 
             if (error) {
