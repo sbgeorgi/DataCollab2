@@ -163,43 +163,43 @@
 
             // Initialize Select2 for University Select with AJAX
             $('#university').select2({
-                placeholder: "Search for your university",
-                theme: "bootstrap-5",
-                allowClear: true,
-                ajax: {
-                    url: 'http://universities.hipolabs.com/search',
-                    dataType: 'json',
-                    delay: 250,
-                    data: function (params) {
-                        return {
-                            name: params.term
-                        };
-                    },
-                    processResults: function (data, params) {
-                        universityInputValue = params.term;
-                         const results = data.map(university => ({
-                            id: university.name,
-                            text: university.name,
-                        }));
+    placeholder: "Search for your university",
+    theme: "bootstrap-5",
+    allowClear: true,
+    ajax: {
+        url: 'https://universities.hipolabs.com/search', // Use HTTPS here
+        dataType: 'json',
+        delay: 250,
+        data: function (params) {
+            return {
+                name: params.term
+            };
+        },
+        processResults: function (data, params) {
+            universityInputValue = params.term;
+            const results = data.map(university => ({
+                id: university.name,
+                text: university.name,
+            }));
 
-                       if (results.length === 0) {
-                           results.push({
-                                id: 'add_university_option',
-                                text: 'Add University ' + params.term,
-                                 custom: true
-                            });
+            if (results.length === 0) {
+                results.push({
+                    id: 'add_university_option',
+                    text: 'Add University ' + params.term,
+                    custom: true
+                });
+            }
+            return {
+                results: results
+            };
+        },
+        cache: true
+    },
+    minimumInputLength: 2,
+    templateResult: formatUniversityOption,
+    templateSelection: formatUniversityOptionSelection
+});
 
-                        }
-                        return {
-                            results: results
-                        };
-                    },
-                    cache: true
-                },
-                minimumInputLength: 2,
-                templateResult: formatUniversityOption,
-                templateSelection: formatUniversityOptionSelection
-            });
 
             // Event listener for when a result is selected
             $('#university').on('select2:select', function (e) {
