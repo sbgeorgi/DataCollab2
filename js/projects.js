@@ -55,6 +55,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize Select2 dropdowns
     initializeSelect2Dropdowns();
+
+    // Initially load projects for the default active tab (if any)
+    const defaultActiveTab = document.querySelector('.tab.active');
+    if (defaultActiveTab) {
+        setActiveSection(defaultActiveTab.getAttribute('data-section'));
+    }
 });
 
 // Function to check user's affiliation status
@@ -72,6 +78,8 @@ async function checkAffiliation() {
         }
     }
 }
+
+let dataManagementProjectsLoaded = false; // Flag to track if Data Management projects are loaded
 
 // Function to set the active section
 function setActiveSection(sectionId) {
@@ -91,7 +99,18 @@ function setActiveSection(sectionId) {
 
     // Load projects or other content based on the active section
     if (['general', 'data-management', 'mapping-tools', 'analytics', 'edit-project'].includes(sectionId)) {
-        loadProjects(sectionId);
+        // --- MODIFICATION: Load Data Management projects only once ---
+        if (sectionId === 'data-management') {
+            if (!dataManagementProjectsLoaded) {
+                console.log("Loading projects for Data Management section (first time)"); // Debug log
+                loadProjects(sectionId);
+                dataManagementProjectsLoaded = true;
+            } else {
+                console.log("Data Management projects already loaded, skipping reload."); // Debug log
+            }
+        } else {
+            loadProjects(sectionId); // Load projects for other sections as before
+        }
     }
 
     // Show/hide Create Map button based on active tab
@@ -340,7 +359,7 @@ async function handleProjectSubmission(event) {
 
 // Function to load and display project cards
 async function loadProjects(sectionId) {
-    console.log("Loading projects for section:", sectionId);
+    console.log("Loading projects for section:", sectionId); // Debug log - added to track function calls
     const section = document.getElementById(sectionId);
     if (!section) return;
 
@@ -350,17 +369,28 @@ async function loadProjects(sectionId) {
         return;
     }
 
-    // Modified query: Remove user_id filter to fetch ALL projects
-    const { data: projects, error } = await supabaseClient
-        .from('projects')
-        .select('*'); // Removed .eq('user_id', session.user.id)
+    let query = supabaseClient.from('projects').select('*');
+
+    if (sectionId !== 'general') {
+        // For sections other than general, fetch only projects user is part of
+        const userProjects = await loadUserProjects();
+        const projectIds = userProjects.map(up => up.project_id);
+        if (projectIds.length > 0) {
+            query = query.in('id', projectIds);
+        } else {
+            // If user is not part of any projects, return empty array to display no projects
+            query = query.in('id', []);
+        }
+    }
+
+    const { data: projects, error } = await query;
 
     if (error) {
         console.error('Error fetching projects:', error);
         return;
     }
 
-    console.log("Fetched projects data:", projects); // Log fetched projects
+    console.log("Fetched projects data:", projects); // Debug log - added to track fetched data
 
     // Find the container for project cards within the section
     let projectCardsContainer = section.querySelector('.project-cards-container');
@@ -375,18 +405,27 @@ async function loadProjects(sectionId) {
     // Clear any existing project cards
     projectCardsContainer.innerHTML = '';
 
-    // Create and append project cards to the container
-    const projectCards = projects.map(project => createProjectCard(project, sectionId)).join('');
-    projectCardsContainer.innerHTML = projectCards;
+    if (sectionId === 'general') {
+        // For general tab, check membership and create cards with join/leave button
+        const userProjects = await loadUserProjects();
+        const userProjectIds = new Set(userProjects.map(up => up.project_id));
+        const projectCards = projects.map(project => createProjectCard(project, sectionId, userProjectIds.has(project.id))).join('');
+        projectCardsContainer.innerHTML = projectCards;
+    } else {
+        // For other tabs, just create project cards
+        const projectCards = projects.map(project => createProjectCard(project, sectionId)).join('');
+        projectCardsContainer.innerHTML = projectCards;
+    }
 
     // Add event listeners to project cards for selection
     const projectCardsElements = projectCardsContainer.querySelectorAll('.project-card');
     projectCardsElements.forEach(card => {
         card.addEventListener('click', (e) => {
-            // If the user clicked the "Go to Forum" button, don't toggle selection
-            if (e.target.classList.contains('forum-btn')) {
-                return;
-            }
+            // -- MODIFICATION: We removed the code that prevented selection if the user clicked the forum button. --
+            // Previously:
+            // if (e.target.classList.contains('forum-btn') || e.target.classList.contains('join-leave-btn')) {
+            //     return;
+            // }
 
             // Get the selected project ID
             const selectedProjectId = card.dataset.projectId;
@@ -415,14 +454,16 @@ async function loadProjects(sectionId) {
 }
 
 // Function to create a project card
-function createProjectCard(project, sectionId) {
-    // --- NEW CODE: Add "Go to Forum" button in the 'general' section ---
-    let forumButtonHTML = '';
+function createProjectCard(project, sectionId, isMember = false) {
+    // --- NEW CODE: Add "Go to Forum" and "Join/Leave" button in the 'general' section ---
+    let actionButtonsHTML = '';
     if (sectionId === 'general') {
-        forumButtonHTML = `
-            <button class="forum-btn" onclick="redirectToForum('${project.id}')">
-                Go to Forum
-            </button>
+        actionButtonsHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="forum-btn action-btn" onclick="redirectToForum('${project.id}')">
+                    Go to Forum
+                </button>
+            </div>
         `;
     }
     // ------------------------------------------------------------------
@@ -438,7 +479,7 @@ function createProjectCard(project, sectionId) {
                     <p>Status: ${project.project_status}</p>
                     <p>Start Date: ${project.start_date || 'N/A'}</p>
                     <p>End Date: ${project.end_date || 'N/A'}</p>
-                    ${forumButtonHTML}
+                    ${actionButtonsHTML}
                 </div>
             `;
         case 'data-management':
@@ -462,51 +503,75 @@ function redirectToForum(projectId) {
     window.location.href = `forum.html?forumForProjectId=${projectId}`;
 }
 
-// Function to handle project selection (add your logic here)
-function handleProjectSelection(sectionId, projectId) {
-    console.log(`Project selected in section ${sectionId}:`, projectId);
+let currentSelectedProjectId = null; // Keep track of selected project ID
 
-    // Reset all buttons to disabled state
-    document.querySelectorAll('.action-btn').forEach(button => {
-        button.disabled = true;
-    });
+// Function to handle project selection (add your logic here)
+async function handleProjectSelection(sectionId, projectId) {
+    console.log(`Project selected in section ${sectionId}:`, projectId);
+    currentSelectedProjectId = projectId; // Update the globally tracked project ID
+
+    // Reset all buttons to disabled state (except join/leave in general tab)
+    if (sectionId !== 'general') {
+        document.querySelectorAll('.action-btn').forEach(button => {
+            button.disabled = true;
+        });
+    }
 
     // Get the selected project card
     const selectedProjectCard = document.querySelector('.project-card.selected');
 
+    // Hide join/leave button container initially
+    const joinLeaveButtonContainer = document.getElementById('join-leave-button-container');
+    if (joinLeaveButtonContainer) {
+        joinLeaveButtonContainer.style.display = 'none';
+    }
+
     // If a project is selected, enable corresponding buttons and show form
     if (selectedProjectCard) {
-        switch (sectionId) {
-            case 'edit-project':
-                const editProjectForm = document.getElementById('edit-project-form');
-                const updateProjectButton = document.getElementById('update-project-btn');
-                if (editProjectForm) {
-                    editProjectForm.style.display = 'flex';
-                    populateEditForm(projectId);
-                }
-                if (updateProjectButton) {
-                    updateProjectButton.style.display = 'block'; // Show the button
-                    updateProjectButton.disabled = false; // Enable the button
-                }
-                break;
-            case 'data-management':
-                const importButton = document.querySelector(`#${sectionId} .action-btn#import-data-btn`);
-                const exportButton = document.querySelector(`#${sectionId} .action-btn#export-data-btn`);
-                if (importButton) importButton.disabled = false;
-                if (exportButton) exportButton.disabled = false;
-                break;
-            case 'mapping-tools':
-                const createMapButton = document.querySelector(`#${sectionId} #create-map-btn`);
-                const editMapButton = document.querySelector(`#${sectionId} #edit-map-btn`);
-                if (createMapButton) createMapButton.disabled = false;
-                if (editMapButton) editMapButton.disabled = false;
-                break;
-            case 'analytics':
-                const generateReportButton = document.querySelector(`#${sectionId} #generate-report-btn`);
-                const viewInsightsButton = document.querySelector(`#${sectionId} #view-insights-btn`);
-                if (generateReportButton) generateReportButton.disabled = false;
-                if (viewInsightsButton) viewInsightsButton.disabled = false;
-                break;
+        if (sectionId === 'general') {
+            // For General tab, show Join/Leave button
+            if (joinLeaveButtonContainer) {
+                joinLeaveButtonContainer.style.display = 'block';
+            }
+            const joinLeaveProjectBtn = document.getElementById('join-leave-project-btn');
+            if (joinLeaveProjectBtn) {
+                const isMember = await isUserMemberOfProject(projectId);
+                joinLeaveProjectBtn.textContent = isMember ? 'Leave Project' : 'Join Project';
+                joinLeaveProjectBtn.onclick = () => handleJoinLeaveProject(projectId, isMember);
+            }
+        } else {
+            switch (sectionId) {
+                case 'edit-project':
+                    const editProjectForm = document.getElementById('edit-project-form');
+                    const updateProjectButton = document.getElementById('update-project-btn');
+                    if (editProjectForm) {
+                        editProjectForm.style.display = 'flex';
+                        populateEditForm(projectId);
+                    }
+                    if (updateProjectButton) {
+                        updateProjectButton.style.display = 'block'; // Show the button
+                        updateProjectButton.disabled = false; // Enable the button
+                    }
+                    break;
+                case 'data-management':
+                    const importButton = document.querySelector(`#${sectionId} .action-btn#import-data-btn`);
+                    const exportButton = document.querySelector(`#${sectionId} .action-btn#export-data-btn`);
+                    if (importButton) importButton.disabled = false;
+                    if (exportButton) exportButton.disabled = false;
+                    break;
+                case 'mapping-tools':
+                    const createMapButton = document.querySelector(`#${sectionId} #create-map-btn`);
+                    const editMapButton = document.querySelector(`#${sectionId} #edit-map-btn`);
+                    if (createMapButton) createMapButton.disabled = false;
+                    if (editMapButton) editMapButton.disabled = false;
+                    break;
+                case 'analytics':
+                    const generateReportButton = document.querySelector(`#${sectionId} #generate-report-btn`);
+                    const viewInsightsButton = document.querySelector(`#${sectionId} #view-insights-btn`);
+                    if (generateReportButton) generateReportButton.disabled = false;
+                    if (viewInsightsButton) viewInsightsButton.disabled = false;
+                    break;
+            }
         }
     } else {
         // If no project is selected, hide the edit form and button
@@ -521,6 +586,106 @@ function handleProjectSelection(sectionId, projectId) {
             }
         }
     }
+}
+
+// Function to handle Join/Leave Project action
+async function handleJoinLeaveProject(projectId, isMember) {
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (!session) {
+        console.error('User not authenticated:', sessionError);
+        alert('You must be logged in to join or leave a project.');
+        return;
+    }
+    const userId = session.user.id;
+
+    if (isMember) {
+        await leaveProject(projectId, userId);
+        alert('You have left the project.');
+    } else {
+        await joinProject(projectId, userId);
+        alert('You have joined the project!');
+    }
+    // Reload projects to update the button and project lists
+    loadProjects('general');
+    // Refresh other sections as well, so projects will appear/disappear based on membership
+    loadProjects('data-management');
+    loadProjects('mapping-tools');
+    loadProjects('analytics');
+    loadProjects('edit-project');
+
+    // After join/leave, re-evaluate the button state for the currently selected project (if any)
+    if (currentSelectedProjectId) {
+        handleProjectSelection('general', currentSelectedProjectId);
+    }
+}
+
+// Function to check if user is a member of a project
+async function isUserMemberOfProject(projectId) {
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (!session) {
+        console.error("User is not logged in:", sessionError);
+        return false; // Not logged in, cannot be member
+    }
+    const userId = session.user.id;
+
+    const { data, error } = await supabaseClient
+        .from('project_users')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error checking project membership:', error);
+        return false; // Assume not a member in case of error
+    }
+
+    // Check if the data array is not null and has at least one element
+    return data && data.length > 0;
+}
+
+// Function to add user to a project
+async function joinProject(projectId, userId) {
+    const { error } = await supabaseClient
+        .from('project_users')
+        .insert([{ project_id: projectId, user_id: userId }]);
+    if (error) {
+        console.error('Error joining project:', error);
+        alert('Failed to join project.');
+    }
+}
+
+// Function to remove user from a project
+async function leaveProject(projectId, userId) {
+    const { error } = await supabaseClient
+        .from('project_users')
+        .delete()
+        .eq('project_id', projectId)
+        .eq('user_id', userId);
+    if (error) {
+        console.error('Error leaving project:', error);
+        alert('Failed to leave project.');
+    }
+}
+
+// Function to load projects that the current user is a member of
+async function loadUserProjects() {
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (!session) {
+        console.error('User not authenticated:', sessionError);
+        return []; // Return empty array if not logged in
+    }
+    const userId = session.user.id;
+
+    const { data, error } = await supabaseClient
+        .from('project_users')
+        .select('project_id')
+        .eq('user_id', userId);
+
+    if (error) {
+        console.error('Error fetching user projects:', error);
+        return []; // Return empty array in case of error
+    }
+    return data || [];
 }
 
 // Function to populate the edit project form with existing data
@@ -856,7 +1021,6 @@ profileIconContainer.addEventListener('drop', async (e) => {
         alert('Error fetching session. Try again.');
     }
 });
-
 
 async function handleImageUpload(file, session) {
     if (file) {

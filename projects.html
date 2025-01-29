@@ -105,6 +105,9 @@
                 <div class="section-content">
                     <div class="section active" id="general">
                         <div class="project-cards-container"></div>
+                        <div id="join-leave-button-container" style="display:none; margin-top: 10px;">
+                            <button id="join-leave-project-btn" class="action-btn"></button>
+                        </div>
                     </div>
 
                     <div class="section" id="create-project">
@@ -210,8 +213,9 @@
 
                     <div class="section" id="data-management">
                         <!-- Added the Save Changes button to the right of Export Data -->
-                        <div class="button-container" style="justify-content: center;">
+                        <div class="button-container" style="justify-content: space-between;">
                             <button class="action-btn" id="import-data-btn" disabled>Import Data</button>
+                            <button class="action-btn" id="save-edits-btn" style="display: none;">Save Changes</button>
                         </div>
                         <div class="project-cards-container" id="data-management-project-cards"></div>
                         <div id="data-table-buttons"></div>
@@ -287,7 +291,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/dist/papaparse.min.js"></script>
 
     <!-- data_import.js must come AFTER supabase.js -->
     <script src="js/data_import.js"></script>
