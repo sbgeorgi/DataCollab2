@@ -1,33 +1,98 @@
-// js/forum.js
-window.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const specificProjectId = urlParams.get('forumForProjectId');
-
-    // If a specific project's forum is requested, show categories for that project
-    if (specificProjectId) {
-        currentProjectId = specificProjectId;
-        await showForumCategories(specificProjectId);
-    } else {
-        // Otherwise, show list of all forums
-        await showAllForums();
-    }
-});
-
-// State variables to keep track of current navigation
+// ----------------------------
+// Global state variables
+// ----------------------------
 let currentProjectId = null;
 let currentCategoryId = null;
 let currentThreadId = null;
+let postsPage = 1;
+const postsPerPage = 10; // For pagination
 
-// Helper to show/hide sections
-function toggleSection(sectionId, show) {
-    const sectionEl = document.getElementById(sectionId);
-    if (!sectionEl) return;
-    sectionEl.classList.remove('show-section', 'hide-section');
-    sectionEl.classList.add(show ? 'show-section' : 'hide-section');
-}
+// ----------------------------
+// Utility Functions
+// ----------------------------
 
-// 1) Show all forums if user did not come from a project link
-async function showAllForums() {
+// Toggle section visibility
+const toggleSection = (sectionId, show) => {
+  const sectionEl = document.getElementById(sectionId);
+  if (!sectionEl) return;
+  sectionEl.classList.remove('show-section', 'hide-section');
+  sectionEl.classList.add(show ? 'show-section' : 'hide-section');
+};
+
+// Show/hide loading spinner
+const showSpinner = () => toggleSection('loading-spinner', true);
+const hideSpinner = () => toggleSection('loading-spinner', false);
+
+// Simple HTML sanitizer to escape HTML tags (note: for production use a library like DOMPurify)
+const sanitizeHTML = (str) => {
+  const temp = document.createElement('div');
+  temp.textContent = str;
+  return temp.innerHTML;
+};
+
+// Display a temporary notification message
+const showNotification = (message, type = 'success') => {
+  const notification = document.createElement('div');
+  notification.className = `notification ${type}`;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
+};
+
+// Format "time ago"
+const timeAgo = (date) => {
+  const now = new Date();
+  const seconds = Math.round((now - date) / 1000);
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.round(minutes / 60);
+  const days = Math.round(hours / 24);
+
+  if (seconds < 60) return 'Just now';
+  if (minutes < 60) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  if (hours < 24) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  return `${days} day${days !== 1 ? 's' : ''} ago`;
+};
+
+// ----------------------------
+// Initialization
+// ----------------------------
+window.addEventListener('DOMContentLoaded', async () => {
+  // Add search functionality
+  document.getElementById('search-btn').addEventListener('click', () => {
+    const term = document.getElementById('forum-search').value.toLowerCase();
+    filterForumList(term);
+  });
+
+  // Check if a specific project forum is requested
+  const urlParams = new URLSearchParams(window.location.search);
+  const specificProjectId = urlParams.get('forumForProjectId');
+  if (specificProjectId) {
+    currentProjectId = specificProjectId;
+    await showForumCategories(specificProjectId);
+  } else {
+    await showAllForums();
+  }
+});
+
+// ----------------------------
+// Search / Filter Function
+// ----------------------------
+const filterForumList = (term) => {
+  // Filter cards in the forum list container by text content
+  const container = document.getElementById('forum-list-container');
+  if (!container) return;
+  const cards = container.querySelectorAll('.forum-card');
+  cards.forEach(card => {
+    card.style.display = card.textContent.toLowerCase().includes(term) ? '' : 'none';
+  });
+};
+
+// ----------------------------
+// 1) Show All Forums
+// ----------------------------
+const showAllForums = async () => {
+  try {
+    showSpinner();
     toggleSection('forum-list-container', true);
     toggleSection('category-list-container', false);
     toggleSection('thread-list-container', false);
@@ -35,59 +100,65 @@ async function showAllForums() {
 
     const forumListContainer = document.getElementById('forum-list-container');
     forumListContainer.innerHTML = `
-    <h2 class="forum-section-header">All Forums</h2>
-    <div id="all-forums-list"></div>
-  `;
+      <h2 class="forum-section-header">All Forums</h2>
+      <div id="all-forums-list"></div>
+    `;
 
     const allForumsList = document.getElementById('all-forums-list');
-
-    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session) {
-        alert('You must be logged in to view forums.');
-        return;
+      alert('You must be logged in to view forums.');
+      hideSpinner();
+      return;
     }
 
-    // Fetch all forums joined with projects
     const { data: forums, error } = await supabaseClient
-        .from('forums')
-        .select(`
-      id,
-      forum_name,
-      description,
-      project_id,
-      projects!inner (
-        project_name,
-        user_id
-      )
-    `);
+      .from('forums')
+      .select(`
+        id,
+        forum_name,
+        description,
+        project_id,
+        projects!inner (
+          project_name,
+          user_id
+        )
+      `);
 
     if (error) {
-        console.error('Error fetching forums:', error);
-        allForumsList.innerHTML = `<p>Failed to load forums.</p>`;
-        return;
+      console.error('Error fetching forums:', error);
+      allForumsList.innerHTML = `<p>Failed to load forums.</p>`;
+      hideSpinner();
+      return;
     }
 
-    if (!forums || !forums.length) {
-        allForumsList.innerHTML = `<p>No forums found.</p>`;
-        return;
+    if (!forums || forums.length === 0) {
+      allForumsList.innerHTML = `<p>No forums found.</p>`;
+      hideSpinner();
+      return;
     }
 
-    // Render each forum as a clickable card
-    const html = forums.map(forum => {
-        return `
-      <div class="forum-card" onclick="showForumCategories('${forum.project_id}')">
-        <div class="forum-card-title">${forum.forum_name}</div>
-        <div class="forum-card-desc">${forum.description || ''}</div>
-        <small>Project: ${forum.projects.project_name}</small>
+    // Render forum cards with sanitized text
+    allForumsList.innerHTML = forums.map(forum => `
+      <div class="forum-card" tabindex="0" onclick="showForumCategories('${forum.project_id}')">
+        <div class="forum-card-title">${sanitizeHTML(forum.forum_name)}</div>
+        <div class="forum-card-desc">${sanitizeHTML(forum.description || '')}</div>
+        <small>Project: ${sanitizeHTML(forum.projects.project_name)}</small>
       </div>
-    `;
-    }).join('');
+    `).join('');
+    hideSpinner();
+  } catch (err) {
+    console.error(err);
+    hideSpinner();
+  }
+};
 
-    allForumsList.innerHTML = html;
-}
-
-// 2) Show categories for a given forum, identified by projectId
-async function showForumCategories(projectId) {
+// ----------------------------
+// 2) Show Forum Categories for a Given Forum
+// ----------------------------
+const showForumCategories = async (projectId) => {
+  try {
+    showSpinner();
     toggleSection('forum-list-container', false);
     toggleSection('category-list-container', true);
     toggleSection('thread-list-container', false);
@@ -95,164 +166,157 @@ async function showForumCategories(projectId) {
 
     const categoryListContainer = document.getElementById('category-list-container');
     categoryListContainer.innerHTML = `
-    <div class="navigation-bar">
-      <button class="back-button" onclick="goBackToForums()">← Back to Forums</button>
-      <h2 class="forum-section-header">Forum Categories</h2>
-    </div>
-    <div id="categories-list"></div>
-    <div class="new-category-form"> <!-- ADDED NEW CATEGORY FORM -->
-      <h3>Create New Category</h3>
-      <input type="text" id="new-category-name" placeholder="Category Name" />
-      <textarea id="new-category-description" placeholder="Category Description"></textarea>
-      <button onclick="createCategory('${projectId}')">Create Category</button>
-    </div>
-  `;
-
-    // Update currentProjectId
+      <div class="navigation-bar">
+        <button class="back-button" onclick="goBackToForums()">← Back to Forums</button>
+        <h2 class="forum-section-header">Forum Categories</h2>
+      </div>
+      <div id="categories-list"></div>
+      <div class="new-category-form">
+        <h3>Create New Category</h3>
+        <input type="text" id="new-category-name" placeholder="Category Name" aria-label="Category Name" />
+        <textarea id="new-category-description" placeholder="Category Description" aria-label="Category Description"></textarea>
+        <button onclick="createCategory('${projectId}')">Create Category</button>
+      </div>
+    `;
     currentProjectId = projectId;
 
-    // Find the forum row for the given projectId
     const { data: forum, error: forumError } = await supabaseClient
-        .from('forums')
-        .select('*')
-        .eq('project_id', projectId)
-        .single();
+      .from('forums')
+      .select('*')
+      .eq('project_id', projectId)
+      .single();
 
     if (forumError || !forum) {
-        console.error('Error or forum not found:', forumError);
-        categoryListContainer.innerHTML += `<p>Forum not found for this project.</p>`;
-        return;
+      console.error('Error or forum not found:', forumError);
+      categoryListContainer.innerHTML += `<p>Forum not found for this project.</p>`;
+      hideSpinner();
+      return;
     }
-
     const forumId = forum.id;
 
-    // Now fetch categories
     let { data: categories, error: catError } = await supabaseClient
+      .from('categories')
+      .select('*')
+      .eq('forum_id', forumId)
+      .order('display_order', { ascending: true });
+
+    if (catError) {
+      console.error('Error fetching categories:', catError);
+      categoryListContainer.innerHTML += `<p>Failed to load categories.</p>`;
+      hideSpinner();
+      return;
+    }
+
+    // Create default categories if none exist
+    if (!categories || categories.length === 0) {
+      const defaultCategories = [
+        {
+          forum_id: forumId,
+          category_name: 'General Discussion',
+          description: 'Talk about anything related to this project.',
+          display_order: 1
+        },
+        {
+          forum_id: forumId,
+          category_name: 'Announcements',
+          description: 'Official updates and announcements.',
+          display_order: 2
+        },
+        {
+          forum_id: forumId,
+          category_name: 'Q&A',
+          description: 'Questions and answers for the community.',
+          display_order: 3
+        }
+      ];
+      const { error: insertError } = await supabaseClient
+        .from('categories')
+        .insert(defaultCategories);
+      if (insertError) {
+        console.error('Error inserting default categories:', insertError);
+        categoryListContainer.innerHTML += `<p>Failed to create default categories.</p>`;
+        hideSpinner();
+        return;
+      }
+      const { data: categoriesAfterInsert } = await supabaseClient
         .from('categories')
         .select('*')
         .eq('forum_id', forumId)
         .order('display_order', { ascending: true });
-
-    if (catError) {
-        console.error('Error fetching categories:', catError);
-        categoryListContainer.innerHTML += `<p>Failed to load categories.</p>`;
-        return;
+      categories = categoriesAfterInsert;
     }
-
-    // ----- NEW CODE: Create default categories if none exist -----
-    if (!categories || !categories.length) {
-        // Insert some default categories
-        const defaultCategories = [
-            {
-                forum_id: forumId,
-                category_name: 'General Discussion',
-                description: 'Talk about anything related to this project.',
-                display_order: 1
-            },
-            {
-                forum_id: forumId,
-                category_name: 'Announcements',
-                description: 'Official updates and announcements.',
-                display_order: 2
-            },
-            {
-                forum_id: forumId,
-                category_name: 'Q&A',
-                description: 'Questions and answers for the community.',
-                display_order: 3
-            }
-        ];
-
-        const { error: insertError } = await supabaseClient
-            .from('categories')
-            .insert(defaultCategories);
-
-        if (insertError) {
-            console.error('Error inserting default categories:', insertError);
-            categoryListContainer.innerHTML += `<p>Failed to create default categories.</p>`;
-            return;
-        }
-
-        // Reload categories
-        const { data: categoriesAfterInsert } = await supabaseClient
-            .from('categories')
-            .select('*')
-            .eq('forum_id', forumId)
-            .order('display_order', { ascending: true });
-        categories = categoriesAfterInsert;
-    }
-    // -----------------------------------------------------------
 
     const categoriesList = document.getElementById('categories-list');
-
     if (!categories.length) {
-        categoriesList.innerHTML = `<p>No categories found for this forum.</p>`;
-        return;
+      categoriesList.innerHTML = `<p>No categories found for this forum.</p>`;
+      hideSpinner();
+      return;
     }
 
-    const html = categories.map(cat => {
-        return `
-      <div class="forum-card category-card" onclick="showThreads('${cat.id}')">
-        <div class="forum-card-title">${cat.category_name}</div>
-        <div class="forum-card-desc">${cat.description || ''}</div>
+    categoriesList.innerHTML = categories.map(cat => `
+      <div class="forum-card category-card" tabindex="0" onclick="showThreads('${cat.id}')">
+        <div class="forum-card-title">${sanitizeHTML(cat.category_name)}</div>
+        <div class="forum-card-desc">${sanitizeHTML(cat.description || '')}</div>
       </div>
-    `;
-    }).join('');
+    `).join('');
+    hideSpinner();
+  } catch (err) {
+    console.error(err);
+    hideSpinner();
+  }
+};
 
-    categoriesList.innerHTML = html;
-}
+// ----------------------------
+// 2b) Create a New Category
+// ----------------------------
+const createCategory = async (projectId) => {
+  const categoryName = document.getElementById('new-category-name').value.trim();
+  const categoryDescription = document.getElementById('new-category-description').value.trim();
 
-// 2b) Create a new category
-async function createCategory(projectId) {
-    const categoryName = document.getElementById('new-category-name').value.trim();
-    const categoryDescription = document.getElementById('new-category-description').value.trim();
+  if (!categoryName) {
+    alert('Please enter a category name.');
+    return;
+  }
 
-    if (!categoryName) {
-        alert('Please enter a category name.');
-        return;
-    }
+  const { data: forum, error: forumError } = await supabaseClient
+    .from('forums')
+    .select('id')
+    .eq('project_id', projectId)
+    .single();
 
-    // Find the forum row for the given projectId to get forum_id
-    const { data: forum, error: forumError } = await supabaseClient
-        .from('forums')
-        .select('id')
-        .eq('project_id', projectId)
-        .single();
+  if (forumError || !forum) {
+    console.error('Error or forum not found:', forumError);
+    alert('Forum not found for this project.');
+    return;
+  }
+  const forumId = forum.id;
 
-    if (forumError || !forum) {
-        console.error('Error or forum not found:', forumError);
-        alert('Forum not found for this project.');
-        return;
-    }
-    const forumId = forum.id;
+  const { error } = await supabaseClient
+    .from('categories')
+    .insert([{
+      forum_id: forumId,
+      category_name: categoryName,
+      description: categoryDescription,
+      display_order: 999
+    }]);
 
+  if (error) {
+    console.error('Error creating category:', error);
+    alert('Failed to create category.');
+    return;
+  }
+  document.getElementById('new-category-name').value = '';
+  document.getElementById('new-category-description').value = '';
+  showNotification('Category created successfully.');
+  showForumCategories(projectId);
+};
 
-    const { data, error } = await supabaseClient
-        .from('categories')
-        .insert([
-            {
-                forum_id: forumId,
-                category_name: categoryName,
-                description: categoryDescription,
-                display_order: 999 // Place new categories at the end by default
-            }
-        ]);
-
-    if (error) {
-        console.error('Error creating category:', error);
-        alert('Failed to create category.');
-        return;
-    }
-
-    // Clear input and refresh categories
-    document.getElementById('new-category-name').value = '';
-    document.getElementById('new-category-description').value = '';
-    showForumCategories(projectId);
-}
-
-
-// 3) Show threads for a given category
-async function showThreads(categoryId) {
+// ----------------------------
+// 3) Show Threads for a Given Category
+// ----------------------------
+const showThreads = async (categoryId) => {
+  try {
+    showSpinner();
     toggleSection('forum-list-container', false);
     toggleSection('category-list-container', false);
     toggleSection('thread-list-container', true);
@@ -260,137 +324,119 @@ async function showThreads(categoryId) {
 
     const threadListContainer = document.getElementById('thread-list-container');
     threadListContainer.innerHTML = `
-    <div class="navigation-bar">
-      <button class="back-button" onclick="goBackToCategories()">← Back to Categories</button>
-      <h2 class="forum-section-header">Threads</h2>
-    </div>
-    <div id="threads-list"></div>
-    <div class="new-thread-form">
-      <h3>Create New Thread</h3>
-      <input type="text" id="new-thread-title" placeholder="Thread Title" />
-      <button onclick="createThread('${categoryId}')">Create Thread</button>
-    </div>
-  `;
-
-    // Update currentCategoryId
+      <div class="navigation-bar">
+        <button class="back-button" onclick="goBackToCategories()">← Back to Categories</button>
+        <h2 class="forum-section-header">Threads</h2>
+      </div>
+      <div id="threads-list"></div>
+      <div class="new-thread-form">
+        <h3>Create New Thread</h3>
+        <input type="text" id="new-thread-title" placeholder="Thread Title" aria-label="Thread Title" />
+        <button onclick="createThread('${categoryId}')">Create Thread</button>
+      </div>
+    `;
     currentCategoryId = categoryId;
-
     const threadsList = document.getElementById('threads-list');
 
-    // Fetch threads along with reply counts and last activity
     const { data: threads, error } = await supabaseClient
-        .from('threads')
-        .select(`
-      id,
-      title,
-      created_at,
-      is_locked,
-      is_pinned,
-      view_count,
-      posts (
+      .from('threads')
+      .select(`
         id,
-        created_at
-      )
-    `)
-        .eq('category_id', categoryId)
-        .order('is_pinned', { ascending: false })
-        .order('created_at', { ascending: false });
+        title,
+        created_at,
+        is_locked,
+        is_pinned,
+        view_count,
+        posts ( id, created_at )
+      `)
+      .eq('category_id', categoryId)
+      .order('is_pinned', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (error) {
-        console.error('Error fetching threads:', error);
-        threadsList.innerHTML = `<p>Failed to load threads.</p>`;
-        return;
+      console.error('Error fetching threads:', error);
+      threadsList.innerHTML = `<p>Failed to load threads.</p>`;
+      hideSpinner();
+      return;
     }
 
-    if (!threads || !threads.length) {
-        threadsList.innerHTML = `<p>No threads found in this category.</p>`;
+    if (!threads || threads.length === 0) {
+      threadsList.innerHTML = `<p>No threads found in this category.</p>`;
     } else {
-        // Render each thread with counters
-        const html = threads.map(thread => {
-            const replyCount = thread.posts.length;
-            const lastActivity = thread.posts.length > 0
-                ? new Date(Math.max(...thread.posts.map(post => new Date(post.created_at).getTime())))
-                : new Date(thread.created_at);
-
-            return `
-        <div class="forum-card thread-card" onclick="showPosts('${thread.id}')">
-          <div class="thread-main">
-            <div class="forum-card-title">${thread.title}</div>
-            <div class="thread-counters">
-              <span class="counter"><i class="fas fa-reply"></i> ${replyCount}</span>
-              <span class="counter"><i class="fas fa-eye"></i> ${thread.view_count}</span>
-              <span class="counter"><i class="fas fa-clock"></i> <span title="${lastActivity.toLocaleString()}">${timeAgo(lastActivity)}</span></span>
+      threadsList.innerHTML = threads.map(thread => {
+        const replyCount = thread.posts.length;
+        const lastActivity = thread.posts.length > 0
+          ? new Date(Math.max(...thread.posts.map(post => new Date(post.created_at).getTime())))
+          : new Date(thread.created_at);
+        return `
+          <div class="forum-card thread-card" tabindex="0" onclick="showPosts('${thread.id}')">
+            <div class="thread-main">
+              <div class="forum-card-title">${sanitizeHTML(thread.title)}</div>
+              <div class="thread-counters">
+                <span class="counter"><i class="fas fa-reply"></i> ${replyCount}</span>
+                <span class="counter"><i class="fas fa-eye"></i> ${thread.view_count}</span>
+                <span class="counter"><i class="fas fa-clock"></i> <span title="${new Date(lastActivity).toLocaleString()}">${timeAgo(new Date(lastActivity))}</span></span>
+              </div>
+            </div>
+            <div class="forum-card-desc">
+              Created: ${new Date(thread.created_at).toLocaleString()}<br/>
+              ${thread.is_locked ? '<span class="badge locked">Locked</span>' : ''}
+              ${thread.is_pinned ? '<span class="badge pinned">Pinned</span>' : ''}
             </div>
           </div>
-          <div class="forum-card-desc">
-            Created: ${new Date(thread.created_at).toLocaleString()}<br/>
-            ${thread.is_locked ? '<span class="badge locked">Locked</span>' : ''}
-            ${thread.is_pinned ? '<span class="badge pinned">Pinned</span>' : ''}
-          </div>
-        </div>
-      `;
-        }).join('');
-        threadsList.innerHTML = html;
+        `;
+      }).join('');
     }
-}
+    hideSpinner();
+  } catch (err) {
+    console.error(err);
+    hideSpinner();
+  }
+};
 
-// Helper function to format time ago
-function timeAgo(date) {
-    const now = new Date();
-    const seconds = Math.round((now - date) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
+// ----------------------------
+// 3b) Create a New Thread
+// ----------------------------
+const createThread = async (categoryId) => {
+  const threadTitle = document.getElementById('new-thread-title').value.trim();
+  if (!threadTitle) {
+    alert('Please enter a thread title.');
+    return;
+  }
 
-    if (seconds < 60) {
-        return 'Just now';
-    } else if (minutes < 60) {
-        return `${minutes} minutes ago`;
-    } else if (hours < 24) {
-        return `${hours} hours ago`;
-    } else {
-        return `${days} days ago`;
-    }
-}
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    alert('You must be logged in to create a thread.');
+    return;
+  }
 
+  const { error } = await supabaseClient
+    .from('threads')
+    .insert([{
+      category_id: categoryId,
+      user_id: session.user.id,
+      title: threadTitle
+    }]);
 
-// 3b) Create a new thread
-async function createThread(categoryId) {
-    const threadTitle = document.getElementById('new-thread-title').value.trim();
-    if (!threadTitle) {
-        alert('Please enter a thread title.');
-        return;
-    }
+  if (error) {
+    console.error('Error creating thread:', error);
+    alert('Failed to create thread.');
+    return;
+  }
 
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        alert('You must be logged in to create a thread.');
-        return;
-    }
+  document.getElementById('new-thread-title').value = '';
+  showNotification('Thread created successfully.');
+  showThreads(categoryId);
+};
 
-    const { data, error } = await supabaseClient
-        .from('threads')
-        .insert([
-            {
-                category_id: categoryId,
-                user_id: session.user.id,
-                title: threadTitle
-            }
-        ]);
-
-    if (error) {
-        console.error('Error creating thread:', error);
-        alert('Failed to create thread.');
-        return;
-    }
-
-    // Clear input and refresh
-    document.getElementById('new-thread-title').value = '';
-    showThreads(categoryId);
-}
-
-// 4) Show posts for a given thread
-async function showPosts(threadId) {
+// ----------------------------
+// 4) Show Posts for a Given Thread
+// ----------------------------
+const showPosts = async (threadId) => {
+  try {
+    showSpinner();
+    // Reset pagination for new thread view
+    postsPage = 1;
     toggleSection('forum-list-container', false);
     toggleSection('category-list-container', false);
     toggleSection('thread-list-container', false);
@@ -398,351 +444,350 @@ async function showPosts(threadId) {
 
     const postListContainer = document.getElementById('post-list-container');
     postListContainer.innerHTML = `
-    <div class="navigation-bar">
-      <button class="back-button" onclick="goBackToThreads()">← Back to Threads</button>
-      <h2 class="forum-section-header">Posts</h2>
-    </div>
-    <div id="posts-list"></div>
-    <div class="new-post-form">
-      <h3>Reply to This Thread</h3>
-      <div class="text-styling-buttons">
-        <button type="button" title="Bold" onclick="applyStyle('bold', 'new-post-content')"><i class="fas fa-bold"></i></button>
-        <button type="button" title="Italic" onclick="applyStyle('italic', 'new-post-content')"><i class="fas fa-italic"></i></button>
-        <button type="button" title="Underline" onclick="applyStyle('underline', 'new-post-content')"><i class="fas fa-underline"></i></button>
-        <button type="button" title="Strikethrough" onclick="applyStyle('strikethrough', 'new-post-content')"><i class="fas fa-strikethrough"></i></button>
-        <button type="button" title="Link" onclick="openLinkDialog('new-post-content')"><i class="fas fa-link"></i></button>
+      <div class="navigation-bar">
+        <button class="back-button" onclick="goBackToThreads()">← Back to Threads</button>
+        <h2 class="forum-section-header">Posts</h2>
       </div>
-      <textarea id="new-post-content" rows="3" placeholder="Write your reply here..."></textarea>
-      <button onclick="createPost('${threadId}', null)">Submit Reply</button>
-    </div>
-  `;
-
-    // Update currentThreadId
+      <div id="posts-list"></div>
+      <div class="new-post-form">
+        <h3>Reply to This Thread</h3>
+        <div class="text-styling-buttons">
+          <button type="button" title="Bold" onclick="applyStyle('bold', 'new-post-content')"><i class="fas fa-bold"></i></button>
+          <button type="button" title="Italic" onclick="applyStyle('italic', 'new-post-content')"><i class="fas fa-italic"></i></button>
+          <button type="button" title="Underline" onclick="applyStyle('underline', 'new-post-content')"><i class="fas fa-underline"></i></button>
+          <button type="button" title="Strikethrough" onclick="applyStyle('strikethrough', 'new-post-content')"><i class="fas fa-strikethrough"></i></button>
+          <button type="button" title="Link" onclick="openLinkDialog('new-post-content')"><i class="fas fa-link"></i></button>
+        </div>
+        <textarea id="new-post-content" rows="3" placeholder="Write your reply here..." aria-label="New Post Content"></textarea>
+        <button onclick="createPost('${threadId}', null)">Submit Reply</button>
+      </div>
+      <div id="load-more-container" class="hide-section">
+        <button id="load-more-btn" onclick="loadMorePosts('${threadId}')">Load More Posts</button>
+      </div>
+    `;
     currentThreadId = threadId;
 
-    // Increment view_count using the stored procedure
+    // Increment view count using stored procedure
     await incrementViewCount(threadId);
 
-    const postsList = document.getElementById('posts-list');
+    loadPosts(threadId, postsPage);
+  } catch (err) {
+    console.error(err);
+    hideSpinner();
+  }
+};
 
-    // Fetch posts from the updated view to get usernames
+// Load posts with pagination
+const loadPosts = async (threadId, page) => {
+  try {
+    const postsList = document.getElementById('posts-list');
     const { data: posts, error } = await supabaseClient
-        .from('posts_with_usernames') // Use the updated view
-        .select(`
-      id,
-      content,
-      created_at,
-      updated_at,
-      user_id,
-      thread_id,
-      reply_to_post_id,
-      username
-    `)
-        .eq('thread_id', threadId)
-        .order('created_at', { ascending: true });
+      .from('posts_with_usernames')
+      .select(`
+        id,
+        content,
+        created_at,
+        updated_at,
+        user_id,
+        thread_id,
+        reply_to_post_id,
+        username
+      `)
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: true })
+      .range((page - 1) * postsPerPage, page * postsPerPage - 1);
 
     if (error) {
-        console.error('Error fetching posts:', error);
-        postsList.innerHTML = `<p>Failed to load posts.</p>`;
-        return;
+      console.error('Error fetching posts:', error);
+      postsList.innerHTML = `<p>Failed to load posts.</p>`;
+      hideSpinner();
+      return;
     }
 
-    if (!posts || !posts.length) {
+    if (!posts || posts.length === 0) {
+      if (page === 1) {
         postsList.innerHTML = `<p>No posts yet. Be the first to reply!</p>`;
-        return;
+      }
+      toggleSection('load-more-container', false);
+      hideSpinner();
+      return;
     }
 
-    // Get current user session for delete and edit button visibility
+    // Get current user for button visibility
     const { data: { session } } = await supabaseClient.auth.getSession();
     const currentUserId = session?.user?.id;
 
-    // Function to recursively build the nested post structure
-    function buildNestedPosts(posts, parentId = null, level = 0) {
-        const nestedPosts = [];
-        for (const post of posts) {
-            if (post.reply_to_post_id === parentId) {
-                const replies = buildNestedPosts(posts, post.id, level + 1);
-                nestedPosts.push({ ...post, replies, level });
-            }
-        }
-        return nestedPosts;
-    }
+    // Build nested posts recursively
+    const buildNestedPosts = (postsArr, parentId = null, level = 0) => {
+      return postsArr.filter(post => post.reply_to_post_id === parentId)
+        .map(post => ({ ...post, replies: buildNestedPosts(postsArr, post.id, level + 1), level }));
+    };
 
     const nestedPosts = buildNestedPosts(posts);
 
-    function renderPosts(posts) {
-        let html = '';
-        for (const post of posts) {
-            const isAuthor = currentUserId === post.user_id;
-            const isEdited = new Date(post.created_at).getTime() !== new Date(post.updated_at).getTime();
-            // Safely access username; if not available, fallback to user_id
-            const username = post.username || post.user_id;
-            html += `
-          <div class="post-card" style="margin-left: ${post.level * 20}px;">
-              ${isAuthor ? `<div class="post-actions">
-                                <button class="edit-post-button" title="Edit Post" onclick="editPost('${post.id}')"><i class="fas fa-edit"></i></button>
-                                <button class="delete-post-button" title="Delete Post" onclick="deletePost('${post.id}')"><i class="fas fa-times"></i></button>
-                             </div>` : ''}
-              <div class="post-author">User: ${username}</div>
-              <div class="post-date" title="${new Date(post.created_at).toLocaleString()}">${timeAgo(new Date(post.created_at))}</div>
-              <div class="post-content" id="post-content-${post.id}">
+    const renderPosts = (postsArray) => {
+      return postsArray.map(post => {
+        const isAuthor = currentUserId === post.user_id;
+        const isEdited = new Date(post.created_at).getTime() !== new Date(post.updated_at).getTime();
+        const username = sanitizeHTML(post.username || post.user_id);
+        return `
+          <div class="post-card" style="margin-left: ${post.level * 20}px;" tabindex="0">
+            ${isAuthor ? `<div class="post-actions">
+              <button class="edit-post-button" title="Edit Post" onclick="editPost('${post.id}')"><i class="fas fa-edit"></i></button>
+              <button class="delete-post-button" title="Delete Post" onclick="deletePost('${post.id}')"><i class="fas fa-times"></i></button>
+            </div>` : ''}
+            <div class="post-author">User: ${username}</div>
+            <div class="post-date" title="${new Date(post.created_at).toLocaleString()}">${timeAgo(new Date(post.created_at))}</div>
+            <div class="post-content" id="post-content-${post.id}">
               ${post.content}
-              </div>
-             ${isEdited ? `<i class="edited-text">This post has been edited</i>` : ''}
-              <div id="edit-form-${post.id}" class="edit-form" style="display:none;">
-                  <div class="text-styling-buttons">
-                      <button type="button" title="Bold" onclick="applyStyle('bold', 'edit-content-${post.id}')"><i class="fas fa-bold"></i></button>
-                      <button type="button" title="Italic" onclick="applyStyle('italic', 'edit-content-${post.id}')"><i class="fas fa-italic"></i></button>
-                      <button type="button" title="Underline" onclick="applyStyle('underline', 'edit-content-${post.id}')"><i class="fas fa-underline"></i></button>
-                      <button type="button" title="Strikethrough" onclick="applyStyle('strikethrough', 'edit-content-${post.id}')"><i class="fas fa-strikethrough"></i></button>
-                      <button type="button" title="Link" onclick="openLinkDialog('edit-content-${post.id}')"><i class="fas fa-link"></i></button>
-                  </div>
-                  <textarea id="edit-content-${post.id}" rows="3">${post.content}</textarea>
-                  <div class="edit-form-buttons">
-                    <button onclick="savePost('${post.id}')">Save</button>
-                    <button onclick="cancelEdit('${post.id}', '${post.content}')">Cancel</button>
-                   </div>
-              </div>
-              <button class="reply-button" onclick="showReplyForm('${post.id}')">Reply</button>
-              <div id="reply-form-${post.id}" class="reply-form" style="display:none;">
-              <div class="text-styling-buttons">
-                  <button type="button" title="Bold" onclick="applyStyle('bold', 'reply-content-${post.id}')"><i class="fas fa-bold"></i></button>
-                  <button type="button" title="Italic" onclick="applyStyle('italic', 'reply-content-${post.id}')"><i class="fas fa-italic"></i></button>
-                  <button type="button" title="Underline" onclick="applyStyle('underline', 'reply-content-${post.id}')"><i class="fas fa-underline"></i></button>
-                  <button type="button" title="Strikethrough" onclick="applyStyle('strikethrough', 'reply-content-${post.id}')"><i class="fas fa-strikethrough"></i></button>
-                   <button type="button" title="Link" onclick="openLinkDialog('reply-content-${post.id}')"><i class="fas fa-link"></i></button>
-               </div>
-              <textarea id="reply-content-${post.id}" rows="2" placeholder="Write your reply..."></textarea>
-              <button onclick="createPost('${threadId}', '${post.id}')">Submit Reply</button>
-               <button onclick="hideReplyForm('${post.id}')">Cancel</button>
             </div>
+            ${isEdited ? `<i class="edited-text">This post has been edited</i>` : ''}
+            <div id="edit-form-${post.id}" class="edit-form" style="display:none;">
+              <div class="text-styling-buttons">
+                <button type="button" title="Bold" onclick="applyStyle('bold', 'edit-content-${post.id}')"><i class="fas fa-bold"></i></button>
+                <button type="button" title="Italic" onclick="applyStyle('italic', 'edit-content-${post.id}')"><i class="fas fa-italic"></i></button>
+                <button type="button" title="Underline" onclick="applyStyle('underline', 'edit-content-${post.id}')"><i class="fas fa-underline"></i></button>
+                <button type="button" title="Strikethrough" onclick="applyStyle('strikethrough', 'edit-content-${post.id}')"><i class="fas fa-strikethrough"></i></button>
+                <button type="button" title="Link" onclick="openLinkDialog('edit-content-${post.id}')"><i class="fas fa-link"></i></button>
+              </div>
+              <textarea id="edit-content-${post.id}" rows="3">${post.content}</textarea>
+              <div class="edit-form-buttons">
+                <button onclick="savePost('${post.id}')">Save</button>
+                <button onclick="cancelEdit('${post.id}', '${sanitizeHTML(post.content)}')">Cancel</button>
+              </div>
+            </div>
+            <button class="reply-button" onclick="showReplyForm('${post.id}')">Reply</button>
+            <div id="reply-form-${post.id}" class="reply-form" style="display:none;">
+              <div class="text-styling-buttons">
+                <button type="button" title="Bold" onclick="applyStyle('bold', 'reply-content-${post.id}')"><i class="fas fa-bold"></i></button>
+                <button type="button" title="Italic" onclick="applyStyle('italic', 'reply-content-${post.id}')"><i class="fas fa-italic"></i></button>
+                <button type="button" title="Underline" onclick="applyStyle('underline', 'reply-content-${post.id}')"><i class="fas fa-underline"></i></button>
+                <button type="button" title="Strikethrough" onclick="applyStyle('strikethrough', 'reply-content-${post.id}')"><i class="fas fa-strikethrough"></i></button>
+                <button type="button" title="Link" onclick="openLinkDialog('reply-content-${post.id}')"><i class="fas fa-link"></i></button>
+              </div>
+              <textarea id="reply-content-${post.id}" rows="2" placeholder="Write your reply..." aria-label="Reply Content"></textarea>
+              <button onclick="createPost('${threadId}', '${post.id}')">Submit Reply</button>
+              <button onclick="hideReplyForm('${post.id}')">Cancel</button>
+            </div>
+            ${post.replies && post.replies.length ? renderPosts(post.replies) : ''}
           </div>
-        ${renderPosts(post.replies)}
-      `;
-        }
-        return html;
-    }
-
-    postsList.innerHTML = renderPosts(nestedPosts);
-    // Re-render any HTML content to ensure styles are applied from text editor
-    postsList.querySelectorAll('.post-content').forEach(postContentDiv => {
-        postContentDiv.innerHTML = postContentDiv.textContent; // Re-set innerHTML to process HTML tags
-    });
-}
-
-
-// Function to increment view_count using the stored procedure
-async function incrementViewCount(threadId) {
-    const { error } = await supabaseClient
-        .rpc('increment_view_count', { thread_id: threadId });
-
-    if (error) {
-        console.error('Error incrementing view count:', error);
-    }
-}
-
-// Function to edit a post
-function editPost(postId) {
-    const contentDiv = document.getElementById(`post-content-${postId}`);
-    const editForm = document.getElementById(`edit-form-${postId}`);
-    if (contentDiv && editForm) {
-        contentDiv.style.display = 'none';
-        editForm.style.display = 'block';
-    }
-}
-
-// Function to save an edited post
-async function savePost(postId) {
-    const textarea = document.getElementById(`edit-content-${postId}`);
-    const contentDiv = document.getElementById(`post-content-${postId}`);
-    const editForm = document.getElementById(`edit-form-${postId}`);
-
-    if (textarea && contentDiv && editForm) {
-        const newContent = textarea.value;
-        const { error } = await supabaseClient
-            .from('posts')
-            .update({ content: newContent, updated_at: new Date().toISOString() })
-            .eq('id', postId);
-        if (error) {
-            console.error('Error updating post:', error);
-            alert('Failed to update post.');
-        } else {
-            contentDiv.innerHTML = newContent;
-            contentDiv.style.display = 'block';
-            editForm.style.display = 'none';
-            showPosts(currentThreadId);
-        }
-    }
-
-}
-
-// Function to cancel post edit
-function cancelEdit(postId, originalContent) {
-    const contentDiv = document.getElementById(`post-content-${postId}`);
-    const editForm = document.getElementById(`edit-form-${postId}`);
-
-    if (contentDiv && editForm) {
-        contentDiv.innerHTML = originalContent;
-        contentDiv.style.display = 'block';
-        editForm.style.display = 'none';
-    }
-}
-
-// Function to delete a post
-async function deletePost(postId) {
-    if (confirm('Are you sure you want to delete this post?')) {
-        const { error } = await supabaseClient
-            .from('posts')
-            .delete()
-            .eq('id', postId);
-
-        if (error) {
-            console.error('Error deleting post:', error);
-            alert('Failed to delete post.');
-        } else {
-            // Refresh posts after deletion
-            showPosts(currentThreadId);
-        }
-    }
-}
-
-// Function to show the reply form for a specific post
-function showReplyForm(postId) {
-    const replyForm = document.getElementById(`reply-form-${postId}`);
-    if (replyForm) {
-        replyForm.style.display = 'block';
-    }
-}
-
-// Function to hide the reply form for a specific post
-function hideReplyForm(postId) {
-    const replyForm = document.getElementById(`reply-form-${postId}`);
-    if (replyForm) {
-        replyForm.style.display = 'none';
-    }
-}
-
-// 4b) Create a new post (reply) in the thread
-async function createPost(threadId, parentPostId) {
-    const textareaId = parentPostId ? `reply-content-${parentPostId}` : 'new-post-content';
-    const postContent = document.getElementById(textareaId).value.trim();
-
-    if (!postContent) {
-        alert('Please write some content.');
-        return;
-    }
-
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session) {
-        alert('You must be logged in to create a post.');
-        return;
-    }
-
-    const newPost = {
-        thread_id: threadId,
-        user_id: session.user.id,
-        content: postContent
+        `;
+      }).join('');
     };
 
-    if (parentPostId) {
-        newPost.reply_to_post_id = parentPostId;
-    }
+    // Append the new posts
+    postsList.innerHTML += renderPosts(nestedPosts);
 
-    const { error } = await supabaseClient
-        .from('posts')
-        .insert([newPost]);
-
-    if (error) {
-        console.error('Error creating post:', error);
-        alert('Failed to create post.');
-        return;
-    }
-
-    // Clear input and reload posts
-    document.getElementById(textareaId).value = '';
-    if (parentPostId) {
-        hideReplyForm(parentPostId);
+    // Show "Load More" if we received a full page of posts
+    if (posts.length === postsPerPage) {
+      toggleSection('load-more-container', true);
     } else {
-        // If it's a top-level reply, ensure the focus stays on the main reply box (optional)
-        document.getElementById('new-post-content').focus();
+      toggleSection('load-more-container', false);
     }
-    showPosts(threadId);
-}
+    hideSpinner();
+  } catch (err) {
+    console.error(err);
+    hideSpinner();
+  }
+};
 
-// Text styling functions
-function applyStyle(style, textareaId) {
-    const textarea = document.getElementById(textareaId);
-    if (!textarea) return;
+// ----------------------------
+// Load More Posts (Pagination)
+// ----------------------------
+const loadMorePosts = async (threadId) => {
+  postsPage++;
+  await loadPosts(threadId, postsPage);
+};
+
+// ----------------------------
+// Increment View Count via Stored Procedure
+// ----------------------------
+const incrementViewCount = async (threadId) => {
+  const { error } = await supabaseClient.rpc('increment_view_count', { thread_id: threadId });
+  if (error) console.error('Error incrementing view count:', error);
+};
+
+// ----------------------------
+// Post Edit/Delete Functions
+// ----------------------------
+const editPost = (postId) => {
+  document.getElementById(`post-content-${postId}`).style.display = 'none';
+  document.getElementById(`edit-form-${postId}`).style.display = 'block';
+};
+
+const savePost = async (postId) => {
+  const textarea = document.getElementById(`edit-content-${postId}`);
+  const contentDiv = document.getElementById(`post-content-${postId}`);
+  const editForm = document.getElementById(`edit-form-${postId}`);
+  if (textarea && contentDiv && editForm) {
+    const newContent = textarea.value;
+    const { error } = await supabaseClient
+      .from('posts')
+      .update({ content: newContent, updated_at: new Date().toISOString() })
+      .eq('id', postId);
+    if (error) {
+      console.error('Error updating post:', error);
+      alert('Failed to update post.');
+    } else {
+      contentDiv.innerHTML = newContent;
+      contentDiv.style.display = 'block';
+      editForm.style.display = 'none';
+      showPosts(currentThreadId);
+      showNotification('Post updated successfully.');
+    }
+  }
+};
+
+const cancelEdit = (postId, originalContent) => {
+  const contentDiv = document.getElementById(`post-content-${postId}`);
+  const editForm = document.getElementById(`edit-form-${postId}`);
+  if (contentDiv && editForm) {
+    contentDiv.innerHTML = originalContent;
+    contentDiv.style.display = 'block';
+    editForm.style.display = 'none';
+  }
+};
+
+const deletePost = async (postId) => {
+  if (confirm('Are you sure you want to delete this post?')) {
+    const { error } = await supabaseClient
+      .from('posts')
+      .delete()
+      .eq('id', postId);
+    if (error) {
+      console.error('Error deleting post:', error);
+      alert('Failed to delete post.');
+    } else {
+      showNotification('Post deleted successfully.', 'error');
+      showPosts(currentThreadId);
+    }
+  }
+};
+
+const showReplyForm = (postId) => {
+  document.getElementById(`reply-form-${postId}`).style.display = 'block';
+};
+
+const hideReplyForm = (postId) => {
+  document.getElementById(`reply-form-${postId}`).style.display = 'none';
+};
+
+// ----------------------------
+// Create a New Post (Reply)
+// ----------------------------
+const createPost = async (threadId, parentPostId) => {
+  const textareaId = parentPostId ? `reply-content-${parentPostId}` : 'new-post-content';
+  const postContent = document.getElementById(textareaId).value.trim();
+  if (!postContent) {
+    alert('Please write some content.');
+    return;
+  }
+
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
+    alert('You must be logged in to create a post.');
+    return;
+  }
+
+  const newPost = {
+    thread_id: threadId,
+    user_id: session.user.id,
+    content: postContent
+  };
+
+  if (parentPostId) newPost.reply_to_post_id = parentPostId;
+
+  const { error } = await supabaseClient
+    .from('posts')
+    .insert([newPost]);
+
+  if (error) {
+    console.error('Error creating post:', error);
+    alert('Failed to create post.');
+    return;
+  }
+  document.getElementById(textareaId).value = '';
+  if (parentPostId) {
+    hideReplyForm(parentPostId);
+  } else {
+    document.getElementById('new-post-content').focus();
+  }
+  showNotification('Post submitted successfully.');
+  showPosts(threadId);
+};
+
+// ----------------------------
+// Text Styling Functions
+// ----------------------------
+const applyStyle = (style, textareaId) => {
+  const textarea = document.getElementById(textareaId);
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selection = textarea.value.substring(start, end);
+  let replacement = selection;
+  switch (style) {
+    case 'bold':
+      replacement = `<b>${selection}</b>`;
+      break;
+    case 'italic':
+      replacement = `<i>${selection}</i>`;
+      break;
+    case 'underline':
+      replacement = `<u>${selection}</u>`;
+      break;
+    case 'strikethrough':
+      replacement = `<del>${selection}</del>`;
+      break;
+  }
+  textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+  textarea.focus();
+  textarea.selectionStart = start + replacement.length;
+  textarea.selectionEnd = start + replacement.length;
+};
+
+const openLinkDialog = (textareaId) => {
+  const textarea = document.getElementById(textareaId);
+  if (!textarea) return;
+  const url = prompt('Enter the URL:');
+  if (url) {
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const selection = textarea.value.substring(start, end);
-    let replacement = selection;
-    switch (style) {
-        case 'bold':
-            replacement = `<b>${selection}</b>`;
-            break;
-        case 'italic':
-            replacement = `<i>${selection}</i>`;
-            break;
-        case 'underline':
-            replacement = `<u>${selection}</u>`;
-            break;
-        case 'strikethrough':
-            replacement = `<del>${selection}</del>`;
-            break;
-    }
-    textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
-    // Adjust cursor position
+    const link = `<a href="${url}" target="_blank" rel="noopener noreferrer">${selection}</a>`;
+    textarea.value = textarea.value.substring(0, start) + link + textarea.value.substring(end);
     textarea.focus();
-    textarea.selectionStart = start + replacement.length;
-    textarea.selectionEnd = start + replacement.length;
-}
+    textarea.selectionStart = start + link.length;
+    textarea.selectionEnd = start + link.length;
+  }
+};
 
-function openLinkDialog(textareaId) {
-    const textarea = document.getElementById(textareaId);
-    if (!textarea) return;
-    const url = prompt('Enter the URL:');
-    if (url) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const selection = textarea.value.substring(start, end);
-        const link = `<a href="${url}" target="_blank" rel="noopener noreferrer">${selection}</a>`; // Added target="_blank" and rel attributes
-        textarea.value = textarea.value.substring(0, start) + link + textarea.value.substring(end);
-        // Adjust cursor position
-        textarea.focus();
-        textarea.selectionStart = start + link.length;
-        textarea.selectionEnd = start + link.length;
-    }
-}
+// ----------------------------
+// Back Navigation Functions
+// ----------------------------
+const goBackToForums = () => {
+  showAllForums();
+  currentProjectId = null;
+  currentCategoryId = null;
+  currentThreadId = null;
+};
 
-
-// Back navigation functions
-function goBackToForums() {
-    showAllForums();
-    // Reset state variables
-    currentProjectId = null;
-    currentCategoryId = null;
+const goBackToCategories = () => {
+  if (currentProjectId) {
+    showForumCategories(currentProjectId);
     currentThreadId = null;
-}
+  } else {
+    showAllForums();
+  }
+};
 
-function goBackToCategories() {
-    if (currentProjectId) {
-        showForumCategories(currentProjectId);
-        // Reset thread and post state
-        currentThreadId = null;
-    } else {
-        showAllForums();
-    }
-}
-
-function goBackToThreads() {
-    if (currentCategoryId) {
-        showThreads(currentCategoryId);
-        // Reset post state
-        currentThreadId = null;
-    } else if (currentProjectId) {
-        showForumCategories(currentProjectId);
-    } else {
-        showAllForums();
-    }
-}
+const goBackToThreads = () => {
+  if (currentCategoryId) {
+    showThreads(currentCategoryId);
+    currentThreadId = null;
+  } else if (currentProjectId) {
+    showForumCategories(currentProjectId);
+  } else {
+    showAllForums();
+  }
+};

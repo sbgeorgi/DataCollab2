@@ -11,10 +11,10 @@
     rel="stylesheet"
   />
 
-  <!-- Link to the main CSS file (projects.css) -->
+  <!-- Main CSS -->
   <link rel="stylesheet" href="css/projects.css" />
 
-  <!-- Link to the Forum CSS file -->
+  <!-- Forum CSS -->
   <link rel="stylesheet" href="css/forum.css" />
 
   <!-- Font Awesome CSS (CDN) -->
@@ -26,20 +26,18 @@
     referrerpolicy="no-referrer"
   />
 
-  <!-- (Optional) Link to the Settings Component CSS -->
+  <!-- Optional Settings Component CSS -->
   <link rel="stylesheet" href="css/settings.css" />
-
   <link rel="stylesheet" href="css/chat.css">
-
 </head>
 
 <body>
   <div class="container">
     <!-- Sidebar -->
-    <div class="sidebar">
+    <aside class="sidebar" role="navigation" aria-label="Main Sidebar">
       <div class="sidebar-top">
         <div class="logo">
-          <img src="assets/logo.png" alt="Logo" />
+          <img src="assets/logo.png" alt="Collaborative Data Platform Logo" loading="lazy"/>
           <span>Collaborative Data Platform</span>
         </div>
       </div>
@@ -72,66 +70,73 @@
       </ul>
 
       <div class="sidebar-bottom">
-        <button id="logout-btn" class="nav-item logout-btn">
+        <button id="logout-btn" class="nav-item logout-btn" aria-label="Logout">
           <i class="fa-solid fa-arrow-right-from-bracket"></i>
           <span class="nav-item">Logout</span>
         </button>
       </div>
-    </div>
-    <!-- End of Sidebar -->
+    </aside>
+    <!-- End Sidebar -->
 
     <!-- Main Content -->
     <div class="main-content">
-      <div class="top-bar">
+      <header class="top-bar">
         <div class="user-info">
-          <i class="fa-solid fa-user" id="profile-btn"></i>
-          <i class="fa-solid fa-bell"></i>
-          <i class="fa-solid fa-gear"></i>
+          <button id="profile-btn" aria-label="Profile"><i class="fa-solid fa-user"></i></button>
+          <button aria-label="Notifications"><i class="fa-solid fa-bell"></i></button>
+          <button aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
         </div>
         <div class="dark-mode-toggle">
           <span id="theme-text">Light Mode</span>
-          <label class="switch">
+          <label class="switch" aria-label="Toggle Dark Mode">
             <input type="checkbox" id="dark-mode-checkbox" />
             <span class="slider round"></span>
           </label>
         </div>
-      </div>
+      </header>
 
-      <div class="content-area" id="forum-content-area">
+      <main class="content-area" id="forum-content-area">
+        <!-- Search Bar -->
+        <div class="search-bar">
+          <input type="search" id="forum-search" placeholder="Search forums or categories..." aria-label="Search Forums">
+          <button id="search-btn" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+
         <!-- Forum Container -->
         <div id="forum-main-container">
+          <!-- Loading Spinner -->
+          <div id="loading-spinner" class="spinner hide-section" aria-live="polite">
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+          </div>
+
           <!-- 1) If user didn’t specify a project forum, or is just browsing, show all forums here -->
-          <div id="forum-list-container" class="hide-section"></div>
+          <section id="forum-list-container" class="hide-section"></section>
 
           <!-- 2) Show categories for the chosen forum -->
-          <div id="category-list-container" class="hide-section"></div>
+          <section id="category-list-container" class="hide-section"></section>
 
           <!-- 3) Show threads for chosen category -->
-          <div id="thread-list-container" class="hide-section"></div>
+          <section id="thread-list-container" class="hide-section"></section>
 
           <!-- 4) Show posts for a chosen thread -->
-          <div id="post-list-container" class="hide-section"></div>
+          <section id="post-list-container" class="hide-section"></section>
         </div>
         <!-- End Forum Container -->
-      </div>
+      </main>
     </div>
-    <!-- End of Main Content -->
+    <!-- End Main Content -->
   </div>
 
   <!-- Profile Overlay -->
-  <div class="overlay" id="profile-overlay">
+  <div class="overlay" id="profile-overlay" aria-modal="true" role="dialog">
     <div class="profile-modal">
-      <span class="close-btn" id="close-profile">×</span>
+      <button class="close-btn" id="close-profile" aria-label="Close Profile">×</button>
       <h2>Your Profile</h2>
       <div class="profile-icon-container">
         <div class="profile-icon" id="profile-icon-container">
-          <img
-            id="profile-image"
-            src="assets/profile_icon.png"
-            alt="Profile Icon"
-          />
+          <img id="profile-image" src="assets/profile_icon.png" alt="Profile Icon" loading="lazy"/>
         </div>
-        <input type="file" id="file-input" accept="image/*" />
+        <input type="file" id="file-input" accept="image/*" aria-label="Change profile picture" />
       </div>
       <div id="profile-content"></div>
     </div>
@@ -143,14 +148,12 @@
   <script src="js/supabase.js"></script>
   <!-- Include jQuery before projects.js -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"
-    integrity="sha256-/xUj+3OJ+KIljpjAbgD5PUf7KZOVb/6M44zx7X04FQc="
-    crossorigin="anonymous"></script>
+    integrity="sha256-/xUj+3OJ+KIljpjAbgD5PUf7KZOVb/6M44zx7X04FQc=" crossorigin="anonymous"></script>
   <!-- Reuse the same projects.js for logout and profile logic -->
   <script src="js/projects.js"></script>
   <!-- Our new forum.js for forum logic -->
   <script src="js/forum.js"></script>
   <script src="js/chat.js"></script>
-
 
   <!-- Dark Mode Toggle Script -->
   <script>
@@ -164,8 +167,8 @@
       themeText.textContent = 'Dark Mode';
     }
 
-    toggleSwitch.addEventListener('change', function () {
-      if (this.checked) {
+    toggleSwitch.addEventListener('change', () => {
+      if (toggleSwitch.checked) {
         document.body.classList.add('dark-mode');
         localStorage.setItem('theme', 'dark');
         themeText.textContent = 'Dark Mode';

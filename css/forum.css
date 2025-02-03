@@ -1,6 +1,4 @@
-/* css/forum.css */
-
-/* Hide/Show Utility */
+/* Utility Classes */
 .hide-section {
   display: none;
 }
@@ -8,12 +6,64 @@
   display: block;
 }
 
-/* The main container inside .content-area */
+/* Spinner Styles */
+.spinner {
+  text-align: center;
+  padding: 20px;
+  font-size: 1.2rem;
+  color: #606c38;
+}
+
+/* Notification Styles */
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #606c38;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  z-index: 1000;
+  opacity: 0.95;
+  font-family: 'Inter', sans-serif;
+}
+.notification.error {
+  background-color: #ff4d4d;
+}
+
+/* Forum Main Container */
 #forum-main-container {
   padding: 25px;
 }
 
-/* Common card styles for forum items (forums, categories, threads) */
+/* Search Bar */
+.search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+.search-bar input[type="search"] {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+}
+.search-bar button {
+  padding: 10px 15px;
+  background: #606c38;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.search-bar button:hover {
+  background: #283618;
+}
+
+/* Forum Cards (Common Styles) */
 .forum-card {
   background-color: #fff;
   border-radius: 10px;
@@ -25,38 +75,35 @@
   position: relative;
   border: 1px solid #e8e8e8;
 }
-
 body.dark-mode .forum-card {
   background-color: #333;
   border: 1px solid #444;
   box-shadow: 0 3px 7px rgba(0,0,0,0.3);
 }
-
 .forum-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 12px rgba(0,0,0,0.15);
 }
-
 body.dark-mode .forum-card:hover {
   background-color: #404040;
   box-shadow: 0 6px 12px rgba(0,0,0,0.4);
 }
 
-/* Category Card - slightly different style */
+/* Category Card */
 .category-card {
-  background-color: #f8f8f8; /* Lighter background for categories */
+  background-color: #f8f8f8;
   border: 1px solid #eee;
 }
 body.dark-mode .category-card {
-  background-color: #3a3a3a; /* Darker but distinct for categories in dark mode */
+  background-color: #3a3a3a;
   border: 1px solid #555;
 }
 
-/* Thread Card - even more distinct */
+/* Thread Card */
 .thread-card {
   background-color: #fff;
-  border-left: 5px solid #606c38; /* Accent border for threads */
-  border-radius: 0; /* Square corners for threads */
+  border-left: 5px solid #606c38;
+  border-radius: 0;
   border-right: 1px solid #e8e8e8;
   border-top: 1px solid #e8e8e8;
   border-bottom: 1px solid #e8e8e8;
@@ -68,38 +115,35 @@ body.dark-mode .thread-card {
   border-top: 1px solid #444;
   border-bottom: 1px solid #444;
 }
-
 .thread-card:hover {
-  background-color: #f9f9f9; /* Lighter hover for threads */
+  background-color: #f9f9f9;
 }
 body.dark-mode .thread-card:hover {
-  background-color: #404040; /* Darker hover for threads in dark mode */
+  background-color: #404040;
 }
 
-
-/* Title in each forum card */
+/* Forum Card Title */
 .forum-card-title {
   font-weight: 600;
   font-size: 1.2rem;
   margin-bottom: 8px;
   color: #333;
 }
-
 body.dark-mode .forum-card-title {
   color: #f5f5f5;
 }
 
+/* Forum Card Description */
 .forum-card-desc {
   font-size: 0.95rem;
   color: #777;
   line-height: 1.5;
 }
-
 body.dark-mode .forum-card-desc {
   color: #ccc;
 }
 
-/* Sections: forum list, category list, thread list, post list */
+/* Section Margins */
 #forum-list-container,
 #category-list-container,
 #thread-list-container,
@@ -107,7 +151,7 @@ body.dark-mode .forum-card-desc {
   margin-top: 25px;
 }
 
-/* Headings for each stage (Forums, Categories, Threads, etc.) */
+/* Section Headers */
 .forum-section-header {
   font-size: 2rem;
   margin-bottom: 20px;
@@ -115,7 +159,6 @@ body.dark-mode .forum-card-desc {
   border-bottom: 2px solid #e0e0e0;
   padding-bottom: 8px;
 }
-
 body.dark-mode .forum-section-header {
   color: #f5f5f5;
   border-bottom-color: #555;
@@ -127,7 +170,6 @@ body.dark-mode .forum-section-header {
   align-items: center;
   margin-bottom: 20px;
 }
-
 .back-button {
   background: #606c38;
   color: #fff;
@@ -140,49 +182,39 @@ body.dark-mode .forum-section-header {
   transition: background-color 0.2s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
 .back-button:hover {
   background: #283618;
   box-shadow: 0 3px 6px rgba(0,0,0,0.15);
 }
 
-
-/* Thread/Post details */
+/* Thread/Post Details */
 .thread-main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px; /* Added margin for spacing between title and counters */
+  margin-bottom: 10px;
 }
-
-
-/* Counters */
 .thread-counters {
   display: flex;
   gap: 15px;
 }
-
 .counter {
   display: flex;
   align-items: center;
   font-size: 0.9rem;
   color: #777;
 }
-
 .counter i {
   margin-right: 6px;
   color: #606c38;
-  font-size: 0.9rem; /* Match icon size to text */
+  font-size: 0.9rem;
 }
-
 body.dark-mode .counter {
   color: #ddd;
 }
 body.dark-mode .counter i {
-  color: #a8dadc; /* Lighter color for icons in dark mode */
+  color: #a8dadc;
 }
-
-
 .badge {
   display: inline-block;
   padding: 4px 8px;
@@ -191,18 +223,16 @@ body.dark-mode .counter i {
   margin-right: 8px;
   font-weight: 500;
 }
-
 .badge.locked {
   background-color: #ff4d4d;
   color: #fff;
 }
-
 .badge.pinned {
   background-color: #007bff;
   color: #fff;
 }
 
-/* Example styling for posts list */
+/* Post Card */
 .post-card {
   border-left: 5px solid #606c38;
   padding: 15px;
@@ -214,23 +244,20 @@ body.dark-mode .counter i {
   box-shadow: 0 2px 4px rgba(0,0,0,0.08);
   border-bottom: 1px solid #eee;
 }
-
 body.dark-mode .post-card {
   background-color: #333;
   border-left-color: #283618;
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   border-bottom: 1px solid #444;
 }
-
 .post-card:hover {
   background-color: #f9f9f9;
 }
-
 body.dark-mode .post-card:hover {
   background-color: #404040;
 }
 
-/* Additional styles for better appearance */
+/* Post Author & Date */
 .post-author {
   font-weight: bold;
   color: #555;
@@ -239,8 +266,6 @@ body.dark-mode .post-card:hover {
 body.dark-mode .post-author {
   color: #eee;
 }
-
-
 .post-date {
   float: right;
   font-size: 0.85rem;
@@ -249,53 +274,47 @@ body.dark-mode .post-author {
 body.dark-mode .post-date {
   color: #aaa;
 }
-
-
 .post-card::after {
   content: "";
   display: table;
   clear: both;
 }
 
+/* Post Content */
 .post-content {
   margin-top: 10px;
-  word-wrap: break-word; /* Ensures long words don't break layout */
-  overflow-wrap: break-word; /* Modern alternative for word-wrap */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   line-height: 1.6;
   color: #444;
 }
 body.dark-mode .post-content {
   color: #ddd;
 }
-
 .post-content b, .post-content strong {
   font-weight: bold;
-  color: #222; /* Example: Darker color for bold text */
+  color: #222;
 }
 body.dark-mode .post-content b, body.dark-mode .post-content strong {
-  color: #fff; /* Example: Lighter color for bold text in dark mode */
+  color: #fff;
 }
-
 .post-content i, .post-content em {
   font-style: italic;
-  color: #555; /* Example: Different color for italic text */
+  color: #555;
 }
 body.dark-mode .post-content i, body.dark-mode .post-content em {
-  color: #ccc; /* Example: Different color for italic text in dark mode */
+  color: #ccc;
 }
-
 .post-content u {
   text-decoration: underline;
 }
-
 .post-content del, .post-content s {
   text-decoration: line-through;
-  color: #777; /* Example: Muted color for strikethrough text */
+  color: #777;
 }
 body.dark-mode .post-content del, body.dark-mode .post-content s {
-  color: #aaa; /* Example: Muted color for strikethrough text in dark mode */
+  color: #aaa;
 }
-
 .post-content a {
   color: #007bff;
   text-decoration: none;
@@ -304,16 +323,14 @@ body.dark-mode .post-content del, body.dark-mode .post-content s {
   text-decoration: underline;
 }
 
-
-/* Delete and Edit buttons in posts */
+/* Post Action Buttons */
 .post-actions {
   position: absolute;
   top: 10px;
   right: 10px;
-  display: flex; /* Use flexbox to arrange buttons */
-  gap: 10px;     /* Space between buttons */
+  display: flex;
+  gap: 10px;
 }
-
 .delete-post-button,
 .edit-post-button {
   background: none;
@@ -322,21 +339,18 @@ body.dark-mode .post-content del, body.dark-mode .post-content s {
   font-size: 1rem;
   color: #aaa;
   transition: color 0.2s ease;
-  padding: 0; /* Reset padding */
-  margin: 0;  /* Reset margin */
-  line-height: 1; /* Ensure icons are vertically aligned */
+  padding: 0;
+  margin: 0;
+  line-height: 1;
 }
-
 .delete-post-button:hover {
   color: #ff4d4d;
 }
-
 .edit-post-button:hover {
   color: #007bff;
 }
 
-
-/* Reply button */
+/* Reply Button */
 .reply-button {
   background: #e0e0e0;
   color: #555;
@@ -348,7 +362,6 @@ body.dark-mode .post-content del, body.dark-mode .post-content s {
   margin-top: 10px;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
-
 .reply-button:hover {
   background: #d0d0d0;
   color: #333;
@@ -357,38 +370,39 @@ body.dark-mode .reply-button {
   background: #555;
   color: #ddd;
 }
-
 body.dark-mode .reply-button:hover {
   background: #666;
   color: #fff;
 }
 
-
-/* Reply form & Edit Form */
+/* Reply and Edit Forms */
 .reply-form,
-.edit-form {
-  margin-top: 15px;
-  padding: 15px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+.edit-form,
+.new-thread-form,
+.new-post-form,
+.new-category-form {
+  margin: 25px 0;
+  padding: 20px;
+  background-color: #f8f8f8;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
   border: 1px solid #eee;
 }
-
 body.dark-mode .reply-form,
-body.dark-mode .edit-form {
+body.dark-mode .edit-form,
+body.dark-mode .new-thread-form,
+body.dark-mode .new-post-form,
+body.dark-mode .new-category-form {
   background-color: #3a3a3a;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   border: 1px solid #444;
 }
-
-
 .reply-form textarea,
 .edit-form textarea,
 .new-thread-form input,
 .new-thread-form textarea,
 .new-post-form textarea,
-.new-category-form input, /* New Category Form Inputs */
+.new-category-form input,
 .new-category-form textarea {
   width: 100%;
   padding: 10px;
@@ -398,28 +412,24 @@ body.dark-mode .edit-form {
   border-radius: 6px;
   box-sizing: border-box;
   font-size: 1rem;
-  resize: vertical; /* Allow vertical resizing */
+  resize: vertical;
 }
-
-
 body.dark-mode .reply-form textarea,
 body.dark-mode .edit-form textarea,
 body.dark-mode .new-thread-form input,
 body.dark-mode .new-thread-form textarea,
 body.dark-mode .new-post-form textarea,
-body.dark-mode .new-category-form input, /* Dark Mode for New Category Form Inputs */
+body.dark-mode .new-category-form input,
 body.dark-mode .new-category-form textarea {
   background-color: #444;
   color: #f5f5f5;
   border: 1px solid #555;
 }
-
-
 .reply-form button,
 .edit-form-buttons button,
 .new-thread-form button,
 .new-post-form button,
-.new-category-form button { /* Style for New Category Form Button */
+.new-category-form button {
   background: #606c38;
   color: #fff;
   border: none;
@@ -429,33 +439,25 @@ body.dark-mode .new-category-form textarea {
   font-size: 1rem;
   transition: background-color 0.2s ease;
 }
-
-
 .reply-form button:hover,
 .edit-form-buttons button:hover,
 .new-thread-form button:hover,
 .new-post-form button:hover,
-.new-category-form button:hover { /* Hover for New Category Form Button */
+.new-category-form button:hover {
   background: #283618;
 }
-
-
 .edit-form-buttons {
   display: flex;
-  justify-content: flex-end; /* Align buttons to the right */
-  gap: 10px; /* Spacing between buttons */
-  margin-top: 10px; /* Add some space above the buttons */
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
 }
-
-
-/* Text styling buttons */
 .text-styling-buttons {
   margin-bottom: 10px;
   display: flex;
   gap: 8px;
   align-items: center;
 }
-
 .text-styling-buttons button {
   background: #f0f0f0;
   border: none;
@@ -466,7 +468,6 @@ body.dark-mode .new-category-form textarea {
   border-radius: 5px;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
-
 .text-styling-buttons button:hover {
   background: #e0e0e0;
   color: #333;
@@ -475,15 +476,11 @@ body.dark-mode .text-styling-buttons button {
   background: #444;
   color: #ddd;
 }
-
 body.dark-mode .text-styling-buttons button:hover {
   background: #555;
   color: #fff;
 }
-
-
-/* Edited text */
-.edited-text{
+.edited-text {
   font-style: italic;
   font-size: 0.85rem;
   color: #999;
@@ -494,81 +491,33 @@ body.dark-mode .edited-text {
   color: #aaa;
 }
 
-
-/* New Thread / New Post forms */
-.new-thread-form,
-.new-post-form,
-.new-category-form { /* Style for New Category Form */
-  margin: 25px 0;
-  padding: 20px;
-  background-color: #f8f8f8;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-  border: 1px solid #eee;
-}
-
-body.dark-mode .new-thread-form,
-body.dark-mode .new-post-form,
-body.dark-mode .new-category-form { /* Dark Mode for New Category Form */
-  background-color: #3a3a3a;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  border: 1px solid #444;
-}
-
-
-.new-thread-form h3,
-.new-post-form h3,
-.new-category-form h3 { /* Style for New Category Form Header */
-  margin-top: 0;
-  margin-bottom: 15px;
-  color: #333;
-  font-size: 1.3rem;
-}
-body.dark-mode .new-thread-form h3,
-body.dark-mode .new-post-form h3,
-body.dark-mode .new-category-form h3 { /* Dark Mode for New Category Form Header */
-  color: #f5f5f5;
-}
-
-
-/* Counter Icons */
-.counter i {
-  margin-right: 6px;
-  color: #606c38;
-}
-
-body.dark-mode .counter i {
-  color: #a8dadc;
-}
-
-/* Thread Counters Styling */
-.thread-counters {
-  display: flex;
-  gap: 15px;
-}
-
-/* Badge Styles */
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 5px;
-  font-size: 0.8rem;
-  margin-right: 8px;
-  font-weight: 500;
-}
-
-.badge.locked {
-  background-color: #ff4d4d;
-  color: #fff;
-}
-
-.badge.pinned {
-  background-color: #007bff;
-  color: #fff;
-}
-
-
-/* New Category Form Specific Styles */
+/* New Category Form Specific */
 #new-category-description {
-  min-height: 80px; /* Make description textarea a bit taller */
+  min-height: 80px;
+}
+
+/* Load More Button Container */
+#load-more-container {
+  text-align: center;
+  margin: 20px 0;
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 60px;
+  }
+  .sidebar .nav-item {
+    display: none;
+  }
+  .top-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .search-bar input[type="search"] {
+    font-size: 0.9rem;
+  }
+  .forum-section-header {
+    font-size: 1.6rem;
+  }
 }

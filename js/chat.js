@@ -1,230 +1,212 @@
-/**********************************************************/
-/* chat.js - Slack-like bottom-floating chat with         */
-/* direct messages and group channels, simplified.         */
-/* - Initials next to chats for identification.           */
-/* - Streamlined channel join on typing.                  */
-/* - Leave channel functionality in channel list.          */
-/* - Create channel functionality in search.               */
-/**********************************************************/
-
-// Make sure you’ve loaded supabase.js and have supabaseClient
-
-/******************************************/
-/*  CSS moved to chat.css                  */
-/******************************************/
-
-
-/**********************************************************/
-/* The rest of your existing code, plus enhancements      */
-/**********************************************************/
+/**********************************************************
+ * chat.js – Slack‑like bottom‑floating chat with DM’s and
+ * channels.
+ *
+ * This version now prevents opening multiple windows for 
+ * the same DM/channel and adds a “reply” feature (like in 
+ * WhatsApp) so that a user may click a reply button on a 
+ * message to show a visual reply preview and send a reply.
+ *
+ * Assumes supabaseClient is already loaded.
+ **********************************************************/
 
 let currentUser = null;
-let chatMinimized = false;
-let currentMode = 'dm';  // or 'channel'
+let currentMode = 'dm'; // "dm" or "channel"
 let activeDMUserId = null;
 let activeChannelId = null;
 let dmSubscription = null;
 let channelSubscription = null;
 
-// A cache for user info
+// Cache for user info
 const userInfoCache = {};
 
 // A real project ID that exists in your 'projects' table
 const defaultProjectId = "17beb421-6583-4f34-8919-140b60facb05";
 
-// Track additional chat containers
+// Track additional chat containers (max 4)
 const additionalContainers = [];
 const maxAdditionalContainers = 4;
 
+/** Debounce helper (from version 2) */
+const debounce = (fn, delay = 300) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+};
+
+/** Format a timestamp nicely */
+const formatTimestamp = ts => new Date(ts).toLocaleString();
+
 document.addEventListener("DOMContentLoaded", async () => {
   const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-  if (!session || !session.user) {
-    console.warn("No user session found");
+  if (sessionError || !session || !session.user) {
+    console.warn("No user session found or error:", sessionError);
     return;
   }
   currentUser = session.user;
-
-  initBaseChatWidget(); // Initialize the base chat widget
+  initBaseChatWidget();
   initRealtimeSubscriptions();
 });
 
-/*********************************************/
-/* Create the Base Chat Widget in the DOM    */
-/*********************************************/
+/**************************************************
+ * Create the Base Chat Widget (no message input)
+ **************************************************/
 function initBaseChatWidget() {
-  const container = document.createElement("div");
+  const container = document.createElement("section");
   container.classList.add("chat-container", "base-container");
   container.id = "base-chat-container";
+  container.setAttribute("role", "complementary");
 
   container.innerHTML = `
-    <div class="chat-header" id="base-chat-header">
+    <header class="chat-header" id="base-chat-header">
       <h2>Chats</h2>
-      <button class="chat-minimize-btn" id="base-chat-minimize-btn">_</button>
-      <button class="chat-close-btn" id="base-chat-close-btn">×</button>
-    </div>
-
+      <div class="header-buttons">
+        <button class="chat-close-btn" id="base-chat-close-btn" title="Close Chats" aria-label="Close Chats">×</button>
+      </div>
+    </header>
     <div class="chat-body">
       <div class="chat-mode-switcher">
-        <button class="chat-mode-btn active" id="dm-mode-btn">Direct Messages</button>
-        <button class="chat-mode-btn" id="channel-mode-btn">Channels</button>
+        <button class="chat-mode-btn active" id="dm-mode-btn" title="Direct Messages" aria-label="Direct Messages">Direct Messages</button>
+        <button class="chat-mode-btn" id="channel-mode-btn" title="Channels" aria-label="Channels">Channels</button>
       </div>
-
       <div class="chat-body-top" id="base-chat-body-top"></div>
-
-      <!-- Channel and DM lists will be here -->
-      <div class="chat-body-list" id="base-chat-body-list"></div>
-
-      <div class="chat-body-feed" id="base-chat-body-feed" style="display:none;"></div>
-
-    </div>
-    <div class="chat-footer" id="base-chat-footer">
-      <input type="text" id="chat-input-message-base-chat-container" placeholder="Type a message..." />
-      <button id="chat-send-btn-base-chat-container">Send</button>
+      <div class="chat-body-list" id="base-chat-body-list">
+        <div style="padding:8px; font-size:14px;">Loading...</div>
+      </div>
     </div>
   `;
-
   document.body.appendChild(container);
 
-  // Event listeners for base container
-  document.getElementById("base-chat-minimize-btn").addEventListener("click", (e) => onMinimizeClick(e, container));
-  document.getElementById("base-chat-header").addEventListener("click", (e) => onHeaderClick(e, container));
-  document.getElementById("base-chat-close-btn").addEventListener("click", (e) => onCloseChatContainer(e, container));
+  // Event listeners for the base container
+  const baseHeader = container.querySelector("#base-chat-header");
+  const closeBtn = container.querySelector("#base-chat-close-btn");
+  const dmModeBtn = container.querySelector("#dm-mode-btn");
+  const chModeBtn = container.querySelector("#channel-mode-btn");
 
-
-  const dmModeBtn = document.getElementById("dm-mode-btn");
-  const channelModeBtn = document.getElementById("channel-mode-btn");
+  baseHeader.addEventListener("click", e => onHeaderClick(e, container));
+  closeBtn.addEventListener("click", e => onCloseChatContainer(e, container, false));
   dmModeBtn.addEventListener("click", () => switchMode('dm', container));
-  channelModeBtn.addEventListener("click", () => switchMode('channel', container));
+  chModeBtn.addEventListener("click", () => switchMode('channel', container));
 
-  // Send message in base container
-  const baseSendBtn = document.getElementById(`chat-send-btn-base-chat-container`);
-  baseSendBtn.addEventListener("click", (e) => handleSendMessage(e, container));
-  const baseInputMsg = document.getElementById(`chat-input-message-base-chat-container`);
-  baseInputMsg.addEventListener("keyup", (e) => {
-    if (e.key === "Enter") {
-      handleSendMessage(e, container);
-    }
-  });
-
-  // Start in DM mode for base container
+  // Start in DM mode
   switchMode('dm', container);
 }
 
-/**************************************************/
-/* Open a New Chat Container                      */
-/**************************************************/
+/**************************************************
+ * Open a New Chat Container (DM or Channel)
+ * – Prevents duplicate windows for the same target.
+ **************************************************/
 async function openNewChatContainer(type, targetId) {
-  // Check if a container for this chat already exists
-  const existingContainerData = additionalContainers.find(c => c.type === type && c.targetId === targetId);
-  if (existingContainerData) {
-    // Container already exists
+  // Check if a container for this target is already open.
+  const existing = additionalContainers.find(c => c.type === type && c.targetId === targetId);
+  if (existing) {
     console.log("Chat window already open for this target.");
+    // Optionally, bring that container to focus
+    existing.container.classList.add("active-chat");
+    setTimeout(() => existing.container.classList.remove("active-chat"), 1000);
     return;
   }
-
   if (additionalContainers.length >= maxAdditionalContainers) {
     alert("Maximum number of additional chats reached (4).");
     return;
   }
 
-  let container = document.createElement("div");
+  const container = document.createElement("section");
   container.classList.add("chat-container", "additional-chat-container");
-  container.id = `chat-container-${additionalContainers.length + 1}`; // Unique ID
+  container.id = `chat-container-${additionalContainers.length + 1}`;
+  // Cycle through shade classes (1–4)
+  const shadeIndex = ((additionalContainers.length + 1) % 4) || 4;
+  container.classList.add(`shade-${shadeIndex}`);
 
-  // Apply shade class to container and header
-  const shadeIndex = (additionalContainers.length + 1) % 4 || 4; // Cycle through 1-4
-  const shadeClass = `shade-${shadeIndex}`;
-  const headerShadeClass = `header-shade-${shadeIndex}`;
-  container.classList.add(shadeClass);
-
-  let headerTitle = "";
-  let headerButtons = `
-      <button class="chat-leave-btn" id="chat-leave-btn-${container.id}" title="Leave Channel"><i class="fa fa-arrow-right"></i></button>
-      <button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>
-    `; // Added Leave button back for channel
-
+  let headerHTML = "";
   if (type === 'dm') {
     const user = await fetchUser(targetId);
-    headerTitle = `DM: ${getDisplayName(user)}`;
-    headerButtons = `<button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>`; // DM style buttons - Minimize removed
+    const title = `DM: ${getDisplayName(user)}`;
+    // DM header: centered title with close button (right‑aligned)
+    headerHTML = `
+      <header class="chat-header header-shade-${shadeIndex}" id="chat-header-${container.id}">
+        <h2>${title}</h2>
+        <div class="header-buttons">
+          <button class="chat-close-btn" id="chat-close-btn-${container.id}" title="Close Chat" aria-label="Close Chat">×</button>
+        </div>
+      </header>
+    `;
   } else if (type === 'channel') {
     const channel = await fetchChannel(targetId);
-    headerTitle = `#${channel.channel_name}`;
-    headerButtons = `<button class="chat-leave-btn" id="chat-leave-btn-${container.id}" title="Leave Channel"><i class="fa fa-arrow-right"></i></button>
-      <button class="chat-close-btn" id="chat-close-btn-${container.id}">×</button>`; // Channel style buttons - Minimize removed
+    const title = `#${channel.channel_name}`;
+    // Channel header: leave arrow (left), centered title, close button (right)
+    headerHTML = `
+      <header class="chat-header header-shade-${shadeIndex}" id="chat-header-${container.id}">
+        <button class="chat-leave-btn" id="chat-leave-btn-${container.id}" title="Leave Channel" aria-label="Leave Channel"><i class="fa fa-arrow-left"></i></button>
+        <h2>${title}</h2>
+        <div class="header-buttons">
+          <button class="chat-close-btn" id="chat-close-btn-${container.id}" title="Close Chat" aria-label="Close Chat">×</button>
+        </div>
+      </header>
+    `;
   }
 
+  // Additional containers include a message input footer with a reply preview area.
   container.innerHTML = `
-    <div class="chat-header ${headerShadeClass}" id="chat-header-${container.id}">
-      ${headerButtons}
-      <h2>${headerTitle}</h2>
-    </div>
-
+    ${headerHTML}
     <div class="chat-body">
-      <div class="chat-body-feed" id="chat-body-feed-${container.id}"></div>
-    </div>
-
-    <div class="chat-footer" id="chat-footer-${container.id}">
-      <input type="text" id="chat-input-message-${container.id}" placeholder="Type a message..." />
-      <button id="chat-send-btn-${container.id}">Send</button>
+      <div class="chat-body-feed" id="chat-body-feed-${container.id}">
+        <div style="padding:8px;">Loading messages...</div>
+      </div>
+      <footer class="chat-footer" id="chat-footer-${container.id}">
+        <div class="chat-reply-preview" id="chat-reply-preview-${container.id}" style="display:none;">
+          <span class="chat-reply-text"></span>
+          <button class="chat-reply-cancel" title="Cancel reply">x</button>
+        </div>
+        <input type="text" id="chat-input-message-${container.id}" placeholder="Type a message..." aria-label="Message Input" />
+        <button id="chat-send-btn-${container.id}" aria-label="Send Message">Send</button>
+      </footer>
     </div>
   `;
-
   document.body.appendChild(container);
+
   const containerData = { container, type, targetId };
   additionalContainers.push(containerData);
+  reAlignChatContainers();
 
-  // Calculate and set left position so they line up side-by-side
-  let totalWidth = 25; // Start with base offset
-  additionalContainers.forEach(cData => {
-    if (cData !== containerData) {
-      totalWidth += cData.container.offsetWidth + 10; // container width + margin
-    }
-  });
-  container.style.left = `${totalWidth}px`;
-
-  // Event listeners for new container
-  if (type === 'dm') {
-    const headerEl = document.getElementById(`chat-header-${container.id}`);
-    headerEl.addEventListener("click", (e) => onHeaderClick(e, container)); // Still allow header click even without minimize for consistent behavior
-  } else if (type === 'channel') {
-    const leaveBtn = document.getElementById(`chat-leave-btn-${container.id}`);
-    leaveBtn.addEventListener("click", (e) => onLeaveChannel(targetId, container));
-    const headerEl = document.getElementById(`chat-header-${container.id}`);
-    headerEl.addEventListener("click", (e) => onHeaderClickChannel(e, container)); // Keeping separate header click for channel
+  // Event listeners for additional container:
+  const headerEl = container.querySelector(`#chat-header-${container.id}`);
+  headerEl.addEventListener("click", e => onHeaderClick(e, container));
+  const closeBtn = container.querySelector(`#chat-close-btn-${container.id}`);
+  closeBtn.addEventListener("click", e => onCloseChatContainer(e, container, false));
+  if (type === 'channel') {
+    const leaveBtn = container.querySelector(`#chat-leave-btn-${container.id}`);
+    leaveBtn.addEventListener("click", e => onLeaveChannel(targetId, container));
   }
-
-  const sendBtn = document.getElementById(`chat-send-btn-${container.id}`);
-  sendBtn.addEventListener("click", (e) => handleSendMessage(e, container));
-  const inputMsg = document.getElementById(`chat-input-message-${container.id}`);
-  inputMsg.addEventListener("keyup", (e) => {
-    if (e.key === "Enter") {
-      handleSendMessage(e, container);
-    }
+  const sendBtn = container.querySelector(`#chat-send-btn-${container.id}`);
+  sendBtn.addEventListener("click", e => handleSendMessage(e, container));
+  const inputMsg = container.querySelector(`#chat-input-message-${container.id}`);
+  inputMsg.addEventListener("keyup", e => {
+    if (e.key === "Enter") handleSendMessage(e, container);
   });
-  const closeBtn = document.getElementById(`chat-close-btn-${container.id}`);
-  closeBtn.addEventListener("click", (e) => onCloseChatContainer(e, container));
+  // Cancel reply button
+  const cancelReplyBtn = container.querySelector(".chat-reply-cancel");
+  cancelReplyBtn.addEventListener("click", () => clearReplyMessage(container));
 
+  // Load the conversation using the proven (v1) logic.
   if (type === 'dm') {
-    loadDMConversation(targetId, document.getElementById(`chat-body-feed-${container.id}`));
+    loadDMConversation(targetId, container.querySelector('.chat-body-feed'));
   } else if (type === 'channel') {
-    // Ensure membership, then load messages
     await ensureChannelMembership(targetId);
-    loadChannelConversation(targetId, document.getElementById(`chat-body-feed-${container.id}`));
-
-    // IMPORTANT: Refresh the channel list in the base container so it appears for the user
+    loadChannelConversation(targetId, container.querySelector('.chat-body-feed'));
+    // Also refresh the base container channel list
     const baseContainer = document.getElementById('base-chat-container');
     await loadRecentChannels(baseContainer);
-    // Optionally switch the base container to 'channel' mode so user sees it right away:
     switchMode('channel', baseContainer);
   }
 }
 
-/**************************************************/
-/* Ensure Channel Membership                      */
-/**************************************************/
+/**************************************************
+ * Ensure Channel Membership (from v1)
+ **************************************************/
 async function ensureChannelMembership(channelId) {
-  // 1. Query without .single() or .maybeSingle()
   const { data: rows, error } = await supabaseClient
     .from('channel_members')
     .select('*')
@@ -235,13 +217,8 @@ async function ensureChannelMembership(channelId) {
     console.error("ensureChannelMembership - Error checking membership:", error);
     return;
   }
+  if (rows && rows.length > 0) return; // Already a member
 
-  // 2. If we already have a row, do nothing
-  if (rows && rows.length > 0) {
-    return; // Already a membership row
-  }
-
-  // 3. Insert a new membership row if none found
   const { error: joinError } = await supabaseClient
     .from('channel_members')
     .insert([{
@@ -250,52 +227,43 @@ async function ensureChannelMembership(channelId) {
       joined_at: new Date().toISOString(),
       is_accepted: true
     }]);
-
   if (joinError) {
     console.error("Failed to join channel:", joinError);
     alert("Failed to join channel!");
   }
 }
 
-/**************************************************/
-/* Close a Chat Container                         */
-/**************************************************/
-function onCloseChatContainer(event, currentContainer) {
-  event.stopPropagation(); // Stop header click-minimize
-
-  // Remove from DOM
+/**************************************************
+ * Close a Chat Container
+ **************************************************/
+function onCloseChatContainer(event, currentContainer, requireConfirm = false) {
+  event.stopPropagation();
   currentContainer.remove();
-
-  // Remove from additionalContainers array
   const index = additionalContainers.findIndex(cData => cData.container === currentContainer);
   if (index > -1) {
     additionalContainers.splice(index, 1);
   }
-
-  // Re-align remaining containers
   reAlignChatContainers();
 }
 
-/**************************************************/
-/* Re-align chat containers after closing one     */
-/**************************************************/
+/**************************************************
+ * Re-align chat containers after one is closed
+ **************************************************/
 function reAlignChatContainers() {
-  let totalWidth = 25; // Starting left offset
+  let totalWidth = 25;
   additionalContainers.forEach(cData => {
     cData.container.style.left = `${totalWidth}px`;
     totalWidth += cData.container.offsetWidth + 10;
   });
 }
 
-/**************************************************/
-/* Switch between DM mode and Channel mode        */
-/**************************************************/
+/**************************************************
+ * Switch between DM and Channel mode in base container
+ **************************************************/
 function switchMode(mode, currentContainer) {
   currentMode = mode;
   activeDMUserId = null;
   activeChannelId = null;
-
-  if (!currentContainer) return;
   const dmBtn = currentContainer.querySelector("#dm-mode-btn");
   const chBtn = currentContainer.querySelector("#channel-mode-btn");
   if (dmBtn && chBtn) {
@@ -311,46 +279,46 @@ function switchMode(mode, currentContainer) {
   }
 }
 
-/**************************************************/
-/* Setup DM and Channel UI                        */
-/**************************************************/
+/**************************************************
+ * Setup DM UI in Base Container (uses v2 markup)
+ **************************************************/
 async function setupDMUI(currentContainer) {
   const topEl = currentContainer.querySelector(".chat-body-top");
   topEl.innerHTML = `
     <div class="chat-search-container">
       <div class="chat-search-wrapper">
-        <input type="text" class="chat-search-input" id="dm-search-input" placeholder="Search by username or name..." />
-        <button class="chat-search-button" id="dm-search-button"><i class="fa fa-search"></i></button>
+        <input type="text" class="chat-search-input" id="dm-search-input" placeholder="Search by username or name..." aria-label="Search DM Users" />
+        <button class="chat-search-button" id="dm-search-button" title="Search" aria-label="Search"><i class="fa fa-search"></i></button>
         <div class="chat-autocomplete-results" id="dm-autocomplete-results" style="display:none;"></div>
       </div>
     </div>
   `;
-  currentContainer.querySelector(".chat-body-feed").style.display = "none";
+  const listEl = currentContainer.querySelector(".chat-body-list");
+  listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading recent DMs...</div>`;
   await loadRecentDMs(currentContainer);
 
   const searchInput = currentContainer.querySelector("#dm-search-input");
-  const searchBtn = currentContainer.querySelector("#dm-search-button");
   const resultsBox = currentContainer.querySelector("#dm-autocomplete-results");
-
-  searchInput.addEventListener("input", async () => {
-    await doDMUserSearch(searchInput, resultsBox, currentContainer);
-  });
-  searchBtn.addEventListener("click", async () => {
-    await doDMUserSearch(searchInput, resultsBox, currentContainer);
-  });
+  const debouncedDMSearch = debounce(() => doDMUserSearch(searchInput, resultsBox, currentContainer));
+  searchInput.addEventListener("input", debouncedDMSearch);
+  currentContainer.querySelector("#dm-search-button")
+    .addEventListener("click", () => doDMUserSearch(searchInput, resultsBox, currentContainer));
 }
 
+/**************************************************
+ * DM User Search – uses v1 query logic
+ **************************************************/
 async function doDMUserSearch(searchInput, resultsBox, currentContainer) {
   const term = searchInput.value.trim();
   if (!term) {
     resultsBox.style.display = "none";
+    resultsBox.innerHTML = "";
     return;
   }
   const { data, error } = await supabaseClient
     .from("affiliations")
     .select("id, user_id, username, first_name, last_name")
     .or(`username.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`);
-
   if (error) {
     console.error("Error searching DM users:", error);
     return;
@@ -378,59 +346,35 @@ async function doDMUserSearch(searchInput, resultsBox, currentContainer) {
   });
 }
 
+/**************************************************
+ * Setup Channel UI in Base Container
+ **************************************************/
 async function setupChannelUI(currentContainer) {
   const topEl = currentContainer.querySelector(".chat-body-top");
   topEl.innerHTML = `
     <div class="chat-search-container">
       <div class="chat-search-wrapper">
-        <input type="text" class="chat-search-input" id="channel-search-input" placeholder="Search or create channels..." />
-        <button class="chat-search-button" id="channel-search-button"><i class="fa fa-plus"></i></button>
+        <input type="text" class="chat-search-input" id="channel-search-input" placeholder="Search or create channels..." aria-label="Search Channels" />
+        <button class="chat-search-button" id="channel-search-button" title="Search or Create Channel" aria-label="Search or Create Channel"><i class="fa fa-plus"></i></button>
         <div class="chat-autocomplete-results" id="channel-autocomplete-results" style="display:none;"></div>
       </div>
     </div>
   `;
-  currentContainer.querySelector(".chat-body-feed").style.display = "none";
+  const listEl = currentContainer.querySelector(".chat-body-list");
+  listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading channels...</div>`;
   await loadRecentChannels(currentContainer);
 
-  // handle channel search and create
   const searchInput = currentContainer.querySelector("#channel-search-input");
-  const searchBtn = currentContainer.querySelector("#channel-search-button");
   const resultsBox = currentContainer.querySelector("#channel-autocomplete-results");
-
-  searchInput.addEventListener("input", async () => {
-    await doChannelSearch(searchInput, resultsBox, currentContainer);
-  });
-  searchBtn.addEventListener("click", async () => {
-    await doChannelSearch(searchInput, resultsBox, currentContainer);
-  });
-}
-
-async function doChannelSearch(searchInput, resultsBox, currentContainer) {
-  const term = searchInput.value.trim();
-  if (!term) {
-    resultsBox.style.display = "none";
-    resultsBox.innerHTML = "";
-    return;
-  }
-
-  const { data, error } = await supabaseClient
-    .from("channels")
-    .select("*")
-    .ilike("channel_name", `%${term}%`);
-
-  if (error) {
-    console.error("Error searching channels:", error);
-    return;
-  }
-
-  resultsBox.innerHTML = "";
-  if (!data || !data.length) {
-    // Option to create a new channel
-    const createOption = document.createElement('div');
-    createOption.classList.add("chat-autocomplete-item");
-    createOption.textContent = `Create new channel '#${term}'`;
-    createOption.addEventListener('click', async () => {
-      const name = term;
+  const debouncedChannelSearch = debounce(() => doChannelSearch(searchInput, resultsBox, currentContainer));
+  searchInput.addEventListener("input", debouncedChannelSearch);
+  currentContainer.querySelector("#channel-search-button")
+    .addEventListener("click", () => doChannelSearch(searchInput, resultsBox, currentContainer));
+  resultsBox.addEventListener("click", async e => {
+    const target = e.target.closest(".chat-autocomplete-item");
+    if (!target) return;
+    if (target.dataset.create) {
+      const name = searchInput.value.trim();
       if (!name) {
         alert("Channel name is required");
         return;
@@ -443,7 +387,6 @@ async function doChannelSearch(searchInput, resultsBox, currentContainer) {
           project_id: defaultProjectId
         }])
         .select();
-
       if (createError) {
         console.error("Error creating channel:", createError);
         alert("Failed to create channel!");
@@ -451,90 +394,89 @@ async function doChannelSearch(searchInput, resultsBox, currentContainer) {
       }
       searchInput.value = `#${name}`;
       resultsBox.style.display = "none";
-
-      // Refresh channel listing, open the new channel
       await loadRecentChannels(currentContainer);
       if (channelData && channelData.length > 0) {
         openNewChatContainer('channel', channelData[0].id);
-
-        // Also refresh the base container list so the user sees new channel:
         const baseContainer = document.getElementById('base-chat-container');
         await loadRecentChannels(baseContainer);
         switchMode('channel', baseContainer);
       }
-    });
-    resultsBox.appendChild(createOption);
-    resultsBox.style.display = "block";
-    return;
-  }
-
-  // Show channels that match
-  data.forEach(ch => {
-    const channelItem = document.createElement('div');
-    channelItem.classList.add("chat-autocomplete-item");
-    channelItem.dataset.channelid = ch.id;
-    channelItem.textContent = `#${ch.channel_name}`;
-    channelItem.addEventListener('click', async () => {
-      const channelId = channelItem.dataset.channelid;
+    } else if (target.dataset.channelid) {
+      const channelId = target.dataset.channelid;
       activeChannelId = channelId;
-      searchInput.value = channelItem.textContent;
+      searchInput.value = target.innerText;
       resultsBox.style.display = "none";
-
-      // Open the existing channel
       openNewChatContainer('channel', channelId);
-
-      // Also refresh the base container channels so it appears
       const baseContainer = document.getElementById('base-chat-container');
       await loadRecentChannels(baseContainer);
       switchMode('channel', baseContainer);
-    });
-    resultsBox.appendChild(channelItem);
+    }
   });
+}
+
+/**************************************************
+ * Channel Search – similar to v1 channel search logic.
+ **************************************************/
+async function doChannelSearch(searchInput, resultsBox, currentContainer) {
+  const term = searchInput.value.trim();
+  if (!term) {
+    resultsBox.style.display = "none";
+    resultsBox.innerHTML = "";
+    return;
+  }
+  const { data, error } = await supabaseClient
+    .from("channels")
+    .select("*")
+    .ilike("channel_name", `%${term}%`);
+  if (error) {
+    console.error("Error searching channels:", error);
+    return;
+  }
+  resultsBox.innerHTML = "";
+  if (!data || !data.length) {
+    resultsBox.innerHTML = `<div class="chat-autocomplete-item" data-create="true">Create new channel '#${term}'</div>`;
+    resultsBox.style.display = "block";
+    return;
+  }
+  resultsBox.innerHTML = data.map(ch => {
+    return `<div class="chat-autocomplete-item" data-channelid="${ch.id}">#${ch.channel_name} <small>(${formatTimestamp(ch.updated_at || Date.now())})</small></div>`;
+  }).join("");
   resultsBox.style.display = "block";
 }
 
-/**************************************************/
-/* Let user leave the channel                     */
-/**************************************************/
+/**************************************************
+ * Let User Leave a Channel (v1 logic)
+ **************************************************/
 async function onLeaveChannel(channelId, currentContainer) {
   if (!channelId) {
     alert("No channel selected.");
     return;
   }
-  const confirmLeave = confirm("Are you sure you want to leave this channel?");
-  if (!confirmLeave) return;
-
-  // Delete from channel_members
+  if (!confirm("Are you sure you want to leave this channel?")) return;
   const { error } = await supabaseClient
     .from("channel_members")
     .delete()
     .eq("channel_id", channelId)
     .eq("user_id", currentUser.id);
-
   if (error) {
     console.error("Error leaving channel:", error);
     alert("Failed to leave channel!");
     return;
   }
   alert("You have left the channel.");
-
-  // Reload channel list in whichever container is passed
   await loadRecentChannels(currentContainer);
   currentContainer.querySelector(".chat-body-feed").style.display = "none";
   activeChannelId = null;
-
-  // If the current open chat is the channel left, close it
   const containerData = additionalContainers.find(c => c.type === 'channel' && c.targetId === channelId);
   if (containerData) {
     onCloseChatContainer(new Event('manualClose'), containerData.container);
   }
 }
 
-/**************************************************/
-/* Subscriptions for DM + Channel messages        */
-/**************************************************/
+/**************************************************
+ * Realtime Subscriptions for DM and Channel Messages
+ **************************************************/
 function initRealtimeSubscriptions() {
-  // Direct messages ...
   dmSubscription = supabaseClient
     .channel("direct-messages-changes")
     .on(
@@ -542,16 +484,13 @@ function initRealtimeSubscriptions() {
       { event: "INSERT", schema: "public", table: "direct_messages" },
       payload => {
         const newMsg = payload.new;
-        // If we are in DM mode and watching a particular user, refresh
         if (currentMode === "dm" && activeDMUserId) {
           const relevant =
             (newMsg.sender_id === currentUser.id && newMsg.recipient_id === activeDMUserId) ||
             (newMsg.recipient_id === currentUser.id && newMsg.sender_id === activeDMUserId);
           if (relevant) {
             const existingContainer = additionalContainers.find(c => c.type === 'dm' && c.targetId === activeDMUserId);
-            const feedElement = existingContainer
-              ? document.getElementById(`chat-body-feed-${existingContainer.container.id}`)
-              : null;
+            const feedElement = existingContainer ? existingContainer.container.querySelector('.chat-body-feed') : null;
             if (feedElement) loadDMConversation(activeDMUserId, feedElement);
           }
         }
@@ -559,7 +498,6 @@ function initRealtimeSubscriptions() {
     )
     .subscribe();
 
-  // Channel messages ...
   channelSubscription = supabaseClient
     .channel("channel-messages-changes")
     .on(
@@ -567,12 +505,9 @@ function initRealtimeSubscriptions() {
       { event: "INSERT", schema: "public", table: "messages" },
       payload => {
         const newMsg = payload.new;
-        // If we are in channel mode and watching a particular channel, refresh
         if (currentMode === "channel" && activeChannelId && newMsg.channel_id === activeChannelId) {
           const existingContainer = additionalContainers.find(c => c.type === 'channel' && c.targetId === activeChannelId);
-          const feedElement = existingContainer
-              ? document.getElementById(`chat-body-feed-${existingContainer.container.id}`)
-              : null;
+          const feedElement = existingContainer ? existingContainer.container.querySelector('.chat-body-feed') : null;
           if (feedElement) loadChannelConversation(activeChannelId, feedElement);
         }
       }
@@ -580,9 +515,9 @@ function initRealtimeSubscriptions() {
     .subscribe();
 }
 
-/**************************************************/
-/* Load & Render DM & Channel logic              */
-/**************************************************/
+/**************************************************
+ * Load Recent Direct Messages (v1 logic)
+ **************************************************/
 async function loadRecentDMs(currentContainer) {
   const listEl = currentContainer.querySelector(".chat-body-list");
   listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading recent DMs...</div>`;
@@ -604,62 +539,56 @@ async function loadRecentDMs(currentContainer) {
     return;
   }
 
-  // Grab the most recent DM with each user
+  // Get the most recent DM with each user.
   const recentMap = new Map();
   for (const dm of allDMs) {
-    const otherUser = (dm.sender_id === currentUser.id)
-      ? dm.recipient_id
-      : dm.sender_id;
+    const otherUser = (dm.sender_id === currentUser.id) ? dm.recipient_id : dm.sender_id;
     if (!recentMap.has(otherUser)) {
       recentMap.set(otherUser, dm);
     }
   }
   const recentList = Array.from(recentMap.values())
-    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   let html = "";
   for (const dmRow of recentList) {
-    const otherUser = (dmRow.sender_id === currentUser.id)
-      ? dmRow.recipient_id
-      : dmRow.sender_id;
+    const otherUser = (dmRow.sender_id === currentUser.id) ? dmRow.recipient_id : dmRow.sender_id;
     html += `
-      <div class="chat-user-item" data-userid="${otherUser}">
-        <span id="dm-name-${otherUser}">DM with user: ${otherUser}</span>
-        <br/>
-        <small>${new Date(dmRow.created_at).toLocaleString()}</small>
+      <div class="chat-user-item" data-userid="${otherUser}" tabindex="0">
+        <span id="dm-name-${otherUser}">DM with: ${otherUser}</span>
+        <br/><small>${formatTimestamp(dmRow.created_at)}</small>
       </div>
     `;
   }
   listEl.innerHTML = html;
 
-  const items = listEl.querySelectorAll(".chat-user-item");
-  items.forEach(item => {
-    item.addEventListener("click", async () => {
+  listEl.querySelectorAll(".chat-user-item").forEach(item => {
+    item.addEventListener("click", () => {
       const userId = item.getAttribute("data-userid");
       activeDMUserId = userId;
       openNewChatContainer('dm', userId);
     });
   });
 
-  // Fill in known user info
+  // Fill in display names using cached user info.
   const uniqueUserIds = Array.from(recentMap.keys());
   await fetchAndCacheMultipleUsers(uniqueUserIds);
-  for (const userId of uniqueUserIds) {
+  uniqueUserIds.forEach(userId => {
     const labelEl = document.getElementById(`dm-name-${userId}`);
     if (labelEl && userInfoCache[userId]) {
       labelEl.textContent = "DM with: " + getDisplayName(userInfoCache[userId]);
     }
-  }
+  });
 }
 
+/**************************************************
+ * Load Recent Channels (v1 logic)
+ **************************************************/
 async function loadRecentChannels(currentContainer) {
   const listEl = currentContainer.querySelector(".chat-body-list");
   listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading channels...</div>`;
 
-  // -----------------------------------------------------
-  // IMPORTANT FIX: Use messages!channel_id(...) so Supabase
-  // recognizes the relationship to messages by channel_id.
-  // -----------------------------------------------------
+  // Use relationship syntax so Supabase recognizes the join.
   const { data, error } = await supabaseClient
     .from("channel_members")
     .select(`
@@ -676,27 +605,22 @@ async function loadRecentChannels(currentContainer) {
     .eq("user_id", currentUser.id);
 
   if (error) {
-    console.error("loadRecentChannels - Error loading user channels:", error);
+    console.error("loadRecentChannels - Error loading channels:", error);
     listEl.innerHTML = `<div style="padding:8px;">Failed to load channels</div>`;
     return;
   }
 
-  // Filter out rows where is_accepted === false if that matters
   const acceptedRows = (data || []).filter(row => row.is_accepted !== false);
-
   if (!acceptedRows.length) {
     listEl.innerHTML = `<div style="padding:8px;">No joined channels. Create one!</div>`;
     return;
   }
 
-  // gather last message times
   const channelsWithTime = acceptedRows.map(r => {
     if (!r.channels) return null;
     let lastMessageTime = 0;
     if (r.channels.messages && r.channels.messages.length) {
-      lastMessageTime = Math.max(
-        ...r.channels.messages.map(m => new Date(m.created_at).getTime())
-      );
+      lastMessageTime = Math.max(...r.channels.messages.map(m => new Date(m.created_at).getTime()));
     }
     return {
       id: r.channels.id,
@@ -705,14 +629,12 @@ async function loadRecentChannels(currentContainer) {
     };
   }).filter(Boolean);
 
-  channelsWithTime.sort((a,b) => b.lastMessageTime - a.lastMessageTime);
+  channelsWithTime.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
   const html = channelsWithTime.map(ch => {
-    const lastDate = ch.lastMessageTime
-      ? new Date(ch.lastMessageTime).toLocaleString()
-      : "No messages yet";
+    const lastDate = ch.lastMessageTime ? formatTimestamp(ch.lastMessageTime) : "No messages yet";
     return `
-      <div class="chat-channel-item" data-ch-id="${ch.id}">
+      <div class="chat-channel-item" data-ch-id="${ch.id}" tabindex="0">
         #${ch.channel_name}
         <br/><small>${lastDate}</small>
       </div>
@@ -720,26 +642,25 @@ async function loadRecentChannels(currentContainer) {
   }).join("");
   listEl.innerHTML = html;
 
-  Array.from(listEl.querySelectorAll(".chat-channel-item")).forEach(item => {
-    item.addEventListener("click", (e) => {
+  listEl.querySelectorAll(".chat-channel-item").forEach(item => {
+    item.addEventListener("click", () => {
       const chId = item.getAttribute("data-ch-id");
       openNewChatContainer('channel', chId);
     });
   });
 }
 
-/**************************************************/
-/* Load DM or Channel conversation                */
-/**************************************************/
+/**************************************************
+ * Load DM Conversation (v1 logic with reply join)
+ **************************************************/
 async function loadDMConversation(userId, feedElement) {
   feedElement.innerHTML = `<div style="padding:8px;">Loading messages...</div>`;
   const orClause = `and(sender_id.eq.${currentUser.id},recipient_id.eq.${userId}),and(sender_id.eq.${userId},recipient_id.eq.${currentUser.id})`;
   const { data, error } = await supabaseClient
     .from("direct_messages")
-    .select("*")
+    .select("*, reply_to ( id, sender_id, content )")
     .or(orClause)
     .order("created_at", { ascending: true });
-
   if (error) {
     console.error("Error loading DMs:", error);
     feedElement.innerHTML = `<div style="padding:8px;">Failed to load messages</div>`;
@@ -748,14 +669,16 @@ async function loadDMConversation(userId, feedElement) {
   renderMessages(data, 'dm', feedElement);
 }
 
+/**************************************************
+ * Load Channel Conversation (v1 logic with reply join)
+ **************************************************/
 async function loadChannelConversation(chId, feedElement) {
   feedElement.innerHTML = `<div style="padding:8px;">Loading channel messages...</div>`;
   const { data, error } = await supabaseClient
     .from("messages")
-    .select("*")
+    .select("*, reply_to ( id, user_id, content )")
     .eq("channel_id", chId)
     .order("created_at", { ascending: true });
-
   if (error) {
     console.error("Error loading channel messages:", error);
     feedElement.innerHTML = `<div style="padding:8px;">Failed to load messages</div>`;
@@ -764,31 +687,111 @@ async function loadChannelConversation(chId, feedElement) {
   renderMessages(data, 'channel', feedElement);
 }
 
-/**************************************************/
-/* Render messages, handle send, etc.            */
-/**************************************************/
+/**************************************************
+ * Render Messages – now adds reply buttons and,
+ * if a message is a reply, shows a reference.
+ **************************************************/
 async function renderMessages(arr, mode, feedElement) {
   feedElement.innerHTML = "";
   for (const msg of arr) {
     const div = document.createElement("div");
     div.classList.add("chat-message");
-    const senderId = (mode === 'dm') ? msg.sender_id : msg.user_id;
+    const senderId = mode === 'dm' ? msg.sender_id : msg.user_id;
     if (senderId === currentUser.id) {
       div.classList.add("sent");
     } else {
       div.classList.add("received");
     }
-
-    // Fetch user info for initials
     const userInfo = await fetchUser(senderId);
     const initials = getInitials(userInfo);
 
-    div.innerHTML = `<span class="user-initials">${initials}</span> ${msg.content || "[No text]"}`;
+    // Build reply reference block if this message is a reply.
+    let replyReferenceHTML = "";
+    if (msg.reply_to) {
+      const originalSenderId = mode === 'dm' ? msg.reply_to.sender_id : msg.reply_to.user_id;
+      const originalSender = await fetchUser(originalSenderId);
+      replyReferenceHTML = `<div class="chat-reply-reference">
+        <strong>${getDisplayName(originalSender)}:</strong> ${msg.reply_to.content || "[No text]"}
+      </div>`;
+    }
+    // Build the main message content with a reply button.
+    div.innerHTML = `
+      ${replyReferenceHTML}
+      <div class="chat-message-main">
+        <span class="user-initials">${initials}</span>
+        <span class="chat-message-content">${msg.content || "[No text]"}</span>
+        <button class="chat-reply-btn" title="Reply" data-msg-id="${msg.id}">↩</button>
+      </div>
+    `;
+    // Attach event listener for the reply button.
+    const replyBtn = div.querySelector(".chat-reply-btn");
+    replyBtn.addEventListener("click", () => {
+      const container = feedElement.closest(".chat-container");
+      setReplyMessage(container, msg);
+    });
     feedElement.appendChild(div);
   }
   feedElement.scrollTop = feedElement.scrollHeight;
 }
 
+/**************************************************
+ * Send a Message – now includes any reply reference.
+ **************************************************/
+async function handleSendMessage(event, currentContainer) {
+  const inp = currentContainer.querySelector(".chat-footer input[type='text']");
+  const text = inp.value.trim();
+  if (!text) return;
+
+  const containerData = additionalContainers.find(c => c.container === currentContainer);
+  if (!containerData) return;
+
+  let replyId = currentContainer.replyMessage ? currentContainer.replyMessage.id : null;
+
+  if (containerData.type === 'dm') {
+    const { error } = await supabaseClient
+      .from("direct_messages")
+      .insert([{
+        sender_id: currentUser.id,
+        recipient_id: containerData.targetId,
+        content: text,
+        reply_to: replyId
+      }]);
+    if (error) {
+      console.error("Error sending DM:", error);
+      return;
+    }
+    loadDMConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
+  } else if (containerData.type === 'channel') {
+    await ensureChannelMembership(containerData.targetId);
+    const { error } = await supabaseClient
+      .from("messages")
+      .insert([{
+        channel_id: containerData.targetId,
+        user_id: currentUser.id,
+        content: text,
+        reply_to: replyId
+      }]);
+    if (error) {
+      console.error("Error sending channel message:", error);
+      return;
+    }
+    loadChannelConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
+  }
+  inp.value = "";
+  clearReplyMessage(currentContainer);
+}
+
+/**************************************************
+ * Toggle Minimization when the header is clicked
+ **************************************************/
+function onHeaderClick(e, currentContainer) {
+  if (e.target.classList.contains("chat-close-btn") || e.target.classList.contains("chat-leave-btn")) return;
+  currentContainer.classList.toggle("chat-minimized");
+}
+
+/**************************************************
+ * Utility: Get User Initials
+ **************************************************/
 function getInitials(user) {
   if (!user) return '??';
   let name = user.username || user.first_name || user.last_name || 'User';
@@ -804,94 +807,9 @@ function getInitials(user) {
   return initials.toUpperCase();
 }
 
-async function handleSendMessage(event, currentContainer) {
-  const inp = currentContainer.querySelector(".chat-footer input[type='text']");
-  const text = inp.value.trim();
-  if (!text) return;
-
-  const containerData = additionalContainers.find(c => c.container === currentContainer);
-  // If it's actually the base container sending a message, find that
-  // (the base container won't be in additionalContainers)
-  let isBaseContainer = false;
-  if (!containerData && currentContainer.id === 'base-chat-container') {
-    isBaseContainer = true;
-  }
-
-  if (!containerData && !isBaseContainer) {
-    return;
-  }
-
-  if (containerData) {
-    // Additional container
-    if (containerData.type === 'dm') {
-      const { error } = await supabaseClient
-        .from("direct_messages")
-        .insert([{
-          sender_id: currentUser.id,
-          recipient_id: containerData.targetId,
-          content: text
-        }]);
-      if (error) {
-        console.error("Error sending DM:", error);
-        return;
-      }
-      loadDMConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
-    } else if (containerData.type === 'channel') {
-      await ensureChannelMembership(containerData.targetId); // ensure membership
-      const { error } = await supabaseClient
-        .from("messages")
-        .insert([{
-          channel_id: containerData.targetId,
-          user_id: currentUser.id,
-          content: text
-        }]);
-      if (error) {
-        console.error("Error sending channel msg:", error);
-        return;
-      }
-      loadChannelConversation(containerData.targetId, currentContainer.querySelector('.chat-body-feed'));
-    }
-  } else {
-    // If needed, handle base container message sending here
-    console.log("Base container: no active conversation to send to in this simplified code.");
-  }
-
-  inp.value = "";
-}
-
-function onMinimizeClick(e, currentContainer) {
-  e.stopPropagation();
-  chatMinimized = !chatMinimized;
-  if (chatMinimized) {
-    currentContainer.classList.add("chat-minimized");
-  } else {
-    currentContainer.classList.remove("chat-minimized");
-  }
-}
-
-function onHeaderClick(e, currentContainer) {
-  if (
-    e.target.classList.contains("chat-close-btn")
-  ) return; // Removed minimize button class check
-
-  const minimized = currentContainer.classList.contains("chat-minimized");
-  currentContainer.classList.toggle("chat-minimized", !minimized);
-}
-
-function onHeaderClickChannel(e, currentContainer) {
-  if (
-    e.target.classList.contains("chat-leave-btn") ||
-    e.target.classList.contains("chat-close-btn")
-  ) return; // Removed minimize button class check
-
-  const minimized = currentContainer.classList.contains("chat-minimized");
-  currentContainer.classList.toggle("chat-minimized", !minimized);
-}
-
-
-/**************************************************/
-/* Utility fetch & cache user info               */
-/**************************************************/
+/**************************************************
+ * Fetch & Cache Multiple Users
+ **************************************************/
 async function fetchAndCacheMultipleUsers(userIds) {
   const needed = userIds.filter(id => !userInfoCache[id]);
   if (!needed.length) return;
@@ -900,7 +818,7 @@ async function fetchAndCacheMultipleUsers(userIds) {
     .select("id, user_id, username, first_name, last_name")
     .in("user_id", needed);
   if (error) {
-    console.error("Error fetch users:", error);
+    console.error("Error fetching multiple users:", error);
     return;
   }
   for (const row of data || []) {
@@ -908,6 +826,9 @@ async function fetchAndCacheMultipleUsers(userIds) {
   }
 }
 
+/**************************************************
+ * Fetch a Single User
+ **************************************************/
 async function fetchUser(userId) {
   if (userInfoCache[userId]) return userInfoCache[userId];
   const { data, error } = await supabaseClient
@@ -923,6 +844,9 @@ async function fetchUser(userId) {
   return data;
 }
 
+/**************************************************
+ * Fetch Channel Information
+ **************************************************/
 async function fetchChannel(channelId) {
   const { data, error } = await supabaseClient
     .from("channels")
@@ -936,10 +860,38 @@ async function fetchChannel(channelId) {
   return data;
 }
 
+/**************************************************
+ * Utility: Get Display Name
+ **************************************************/
 function getDisplayName(u) {
   if (!u) return "[Unknown]";
-  const { username, first_name, last_name } = u;
-  if (username) return username;
-  const full = (first_name || "") + " " + (last_name || "");
-  return full.trim() || "[No name]";
+  return u.username || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "[No name]";
+}
+
+/**************************************************
+ * Set Reply Message – shows a reply preview in the UI.
+ **************************************************/
+function setReplyMessage(container, msg) {
+  container.replyMessage = msg;
+  const preview = container.querySelector(`#chat-reply-preview-${container.id}`);
+  if (preview) {
+    const replyTextSpan = preview.querySelector(".chat-reply-text");
+    // Determine the original sender (sender_id for DM; user_id for channel)
+    const senderId = msg.sender_id || msg.user_id;
+    const senderInfo = userInfoCache[senderId] || { username: "Unknown" };
+    // Show a truncated version of the original message
+    replyTextSpan.textContent = `Replying to ${getDisplayName(senderInfo)}: ${msg.content.substring(0, 30)}...`;
+    preview.style.display = "block";
+  }
+}
+
+/**************************************************
+ * Clear Reply Message – hides the reply preview.
+ **************************************************/
+function clearReplyMessage(container) {
+  container.replyMessage = null;
+  const preview = container.querySelector(`#chat-reply-preview-${container.id}`);
+  if (preview) {
+    preview.style.display = "none";
+  }
 }
