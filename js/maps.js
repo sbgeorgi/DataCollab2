@@ -48,11 +48,9 @@ function initMap(projectId) {
         toggleText.textContent = 'Satellite View'; // Initial text
         toggleWrapper.appendChild(toggleText);
 
-
         basemapToggleContainer.appendChild(toggleWrapper);
         mapContainer.appendChild(basemapToggleContainer);
     }
-
 
     if (!map) {
         map = L.map(mapContainer, {
@@ -68,7 +66,6 @@ function initMap(projectId) {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
         currentBasemap = 'osm';
-
 
         drawnItems = new L.FeatureGroup();
         map.addLayer(drawnItems);
@@ -96,6 +93,7 @@ function initMap(projectId) {
             if (!feature.properties) {
                 feature.properties = {};
             }
+            // Default properties for a new feature (object)
             feature.properties.description = 'New Object Description';
             feature.properties.site_information = 'New Site Information';
             feature.properties.website = 'https://example.com';
@@ -160,7 +158,6 @@ function toggleBasemap() {
     }
 }
 
-
 function bindPopupToLayer(layer, projectId, feature) {
     let popupContent = `
         <div>
@@ -187,7 +184,6 @@ function bindPopupToLayer(layer, projectId, feature) {
             site_information: feature.properties.site_information || 'N/A',
             website: feature.properties.website || 'N/A'
         };
-
 
         const deleteBtn = popupElement.querySelector('.delete-feature-btn');
         // Remove previous click event listener - using standard JS removeEventListener
@@ -232,7 +228,6 @@ function bindPopupToLayer(layer, projectId, feature) {
     });
 }
 
-
 function showMapObjectForm(projectId, feature, layer) {}
 
 async function saveMapObject(projectId, feature, layer) {
@@ -243,7 +238,6 @@ async function saveMapObject(projectId, feature, layer) {
         return;
     }
     const createdBy = session.user.id;
-
 
     // INSERT NEW FEATURE
     if (!feature.properties._leaflet_id) { // Using _leaflet_id as a proxy for new feature
@@ -268,13 +262,11 @@ async function saveMapObject(projectId, feature, layer) {
             }
             existingMapObject.features = [...existingMapObject.features, feature];
 
-
             const { data: updateData, error: updateError } = await supabaseClient
                 .from('maps')
                 .update({ map_object: existingMapObject })
                 .eq('id', currentMapId)
                 .select('map_object'); // Select map_object to get updated version
-
 
             if (updateError) {
                 console.error('Error updating map object in Supabase:', updateError);
@@ -285,12 +277,10 @@ async function saveMapObject(projectId, feature, layer) {
             console.log('Map object updated successfully with new feature.');
             loadMapData(projectId, currentMapId);
 
-
         } catch (error) {
             console.error('Error during saveMapObject (INSERT):', error);
             alert('Error saving map object.');
         }
-
 
     } else {
         // UPDATE EXISTING FEATURE
@@ -326,7 +316,6 @@ async function saveMapObject(projectId, feature, layer) {
                 f.properties.website === feature.properties.website
             );
 
-
             if (featureIndex === -1) {
                 console.error('Feature not found in map_object for update.');
                 alert('Feature not found for update.');
@@ -336,13 +325,11 @@ async function saveMapObject(projectId, feature, layer) {
             // 3. Update the properties and geometry of the found feature
             existingMapObject.features[featureIndex] = feature;
 
-
             // 4. Update the entire map_object in Supabase
             const { error: updateError } = await supabaseClient
                 .from('maps')
                 .update({ map_object: existingMapObject })
                 .eq('id', currentMapId);
-
 
             if (updateError) {
                 console.error('Error updating map object in Supabase:', updateError);
@@ -353,7 +340,6 @@ async function saveMapObject(projectId, feature, layer) {
             console.log('Map object updated successfully after feature edit.');
             loadMapData(projectId, currentMapId); // Reload to show updated data
 
-
         } catch (error) {
             console.error('Error during saveMapObject (UPDATE):', error);
             alert('Error updating map object.');
@@ -361,11 +347,9 @@ async function saveMapObject(projectId, feature, layer) {
     }
 }
 
-
 async function deleteMapObject(projectId, feature, layer) {
     const confirmDelete = confirm('Are you sure you want to remove this map object?');
     if (!confirmDelete) return;
-
 
     try {
         // 1. Fetch the current map data (FeatureCollection)
@@ -397,20 +381,17 @@ async function deleteMapObject(projectId, feature, layer) {
             f.properties.website === feature.properties.website
         ));
 
-
         // 3. Update the entire map_object in Supabase
         const { error: updateError } = await supabaseClient
             .from('maps')
             .update({ map_object: existingMapObject })
             .eq('id', currentMapId);
 
-
         if (updateError) {
             console.error('Error updating map object in Supabase after delete:', updateError);
             alert('Failed to delete map object from Supabase.');
             return;
         }
-
 
         console.log('Map object updated successfully after feature delete.');
         drawnItems.removeLayer(layer);
@@ -421,7 +402,6 @@ async function deleteMapObject(projectId, feature, layer) {
             }
             document.getElementById('map-container').style.display = 'none';
         }
-
 
     } catch (error) {
         console.error('Error during deleteMapObject:', error);
@@ -509,11 +489,49 @@ function clearProjectMaps() {
     }
 }
 
-
-function showMapCreationContainer(projectId) {
+// Modified: Now prompts for a new map name, retrieves the current session, and creates a new map record (including created_by) in Supabase.
+async function showMapCreationContainer(projectId) {
     clearMap();
     clearProjectMaps();
     document.getElementById('map-container').style.display = 'block';
+
+    let mapName = prompt("Enter a name for the new map:");
+    if (!mapName) {
+        alert("Map creation cancelled. Please provide a map name.");
+        return;
+    }
+
+    // Retrieve session so we can set created_by
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        alert("User not authenticated.");
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('maps')
+            .insert({
+                project_id: projectId,
+                description: mapName,
+                map_object: { type: 'FeatureCollection', features: [] },
+                created_by: session.user.id
+            })
+            .select();
+        if (error) {
+            console.error('Error creating new map:', error);
+            alert('Error creating new map: ' + error.message);
+            return;
+        }
+        // Assuming the insert returns an array with the new map row
+        if (data && data.length > 0) {
+            currentMapId = data[0].id;
+        }
+    } catch (err) {
+        console.error('Error creating new map:', err);
+        alert('Error creating new map');
+        return;
+    }
 
     let mapFormContainer = document.getElementById('map-form-container');
     if (!mapFormContainer) {
@@ -552,6 +570,7 @@ async function loadProjectMaps(projectId) {
         if (mapList && mapList.length > 0) {
             mapList.forEach(mapItem => {
                 const mapButton = document.createElement('button');
+                // Use the description column for the map name/button text
                 const mapDescription = mapItem.map_object?.properties?.description || mapItem.description || 'Map';
                 mapButton.textContent = mapDescription;
                 mapButton.title = mapDescription;
@@ -574,7 +593,6 @@ async function loadProjectMaps(projectId) {
         projectMapsContainer.innerHTML = '<p>Error loading maps.</p>';
     }
 }
-
 
 async function loadMapData(projectId, mapId) {
     currentMapId = mapId;
@@ -611,7 +629,6 @@ async function loadMapData(projectId, mapId) {
                 features = [mapObjects];
             }
 
-
             features.forEach((feature) => {
                 if (!feature.properties) {
                     feature.properties = {};
@@ -627,7 +644,6 @@ async function loadMapData(projectId, mapId) {
                 drawnItems.addLayer(geoJsonLayer);
             });
 
-
             if (drawnItems.getLayers().length > 0) {
                 map.fitBounds(drawnItems.getBounds());
             }
@@ -635,7 +651,6 @@ async function loadMapData(projectId, mapId) {
             console.log('No map objects found for map ID:', mapId);
             alert('No map objects found for selected map.');
         }
-
 
     } catch (err) {
         console.error('Error loading map data:', err);
@@ -657,7 +672,6 @@ $(document).ready(function () {
             handleProjectSelection(sectionId, projectId);
         });
     }
-
 
     async function loadProjectsForSection(sectionId) {
         const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
@@ -699,7 +713,6 @@ $(document).ready(function () {
         setupProjectCardSelection(sectionId);
     }
 
-
     $('.tab[data-section="mapping-tools"]').on('click', async function () {
         await loadProjectsForSection('mapping-tools');
         document.querySelector('#create-map-btn').disabled = true;
@@ -709,14 +722,14 @@ $(document).ready(function () {
         $('#mapping-tools .project-cards-container').removeClass('selected');
     });
 
-
     async function initializeMappingTools() {
         const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession();
 
         if (sessionData?.session) {
-            $('#create-map-btn').click(() => {
+            // Modified: Use an async handler for the create-map-btn click event
+            $('#create-map-btn').click(async () => {
                 if (currentProjectId) {
-                    showMapCreationContainer(currentProjectId);
+                    await showMapCreationContainer(currentProjectId);
                 } else {
                     alert('Please select a project first to create a map.');
                 }
@@ -731,7 +744,6 @@ $(document).ready(function () {
             window.location.href = '/login.html';
         }
     }
-
 
     function initializeActiveTabSection() {
         const activeSection = $('.tab.active').data('section');

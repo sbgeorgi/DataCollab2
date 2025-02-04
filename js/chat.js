@@ -1,13 +1,7 @@
 /**********************************************************
- * chat.js – Slack‑like bottom‑floating chat with DM’s and
- * channels.
- *
- * This version now prevents opening multiple windows for 
- * the same DM/channel and adds a “reply” feature (like in 
- * WhatsApp) so that a user may click a reply button on a 
- * message to show a visual reply preview and send a reply.
- *
- * Assumes supabaseClient is already loaded.
+ * chat.js – Redesigned Slack‑like chat with inline messaging,
+ * refined animations, accessibility improvements, and
+ * responsive design.
  **********************************************************/
 
 let currentUser = null;
@@ -27,7 +21,7 @@ const defaultProjectId = "17beb421-6583-4f34-8919-140b60facb05";
 const additionalContainers = [];
 const maxAdditionalContainers = 4;
 
-/** Debounce helper (from version 2) */
+/** Debounce helper */
 const debounce = (fn, delay = 300) => {
   let timer;
   return (...args) => {
@@ -73,7 +67,7 @@ function initBaseChatWidget() {
       </div>
       <div class="chat-body-top" id="base-chat-body-top"></div>
       <div class="chat-body-list" id="base-chat-body-list">
-        <div style="padding:8px; font-size:14px;">Loading...</div>
+        <div class="loading-message">Loading...</div>
       </div>
     </div>
   `;
@@ -103,7 +97,7 @@ async function openNewChatContainer(type, targetId) {
   const existing = additionalContainers.find(c => c.type === type && c.targetId === targetId);
   if (existing) {
     console.log("Chat window already open for this target.");
-    // Optionally, bring that container to focus
+    // Bring that container to focus with a brief active animation.
     existing.container.classList.add("active-chat");
     setTimeout(() => existing.container.classList.remove("active-chat"), 1000);
     return;
@@ -153,15 +147,17 @@ async function openNewChatContainer(type, targetId) {
     ${headerHTML}
     <div class="chat-body">
       <div class="chat-body-feed" id="chat-body-feed-${container.id}">
-        <div style="padding:8px;">Loading messages...</div>
+        <div class="loading-message">Loading messages...</div>
       </div>
       <footer class="chat-footer" id="chat-footer-${container.id}">
-        <div class="chat-reply-preview" id="chat-reply-preview-${container.id}" style="display:none;">
+        <div class="chat-reply-preview" id="chat-reply-preview-${container.id}" aria-live="polite">
           <span class="chat-reply-text"></span>
-          <button class="chat-reply-cancel" title="Cancel reply">x</button>
+          <button class="chat-reply-cancel" title="Cancel reply" aria-label="Cancel reply">×</button>
         </div>
-        <input type="text" id="chat-input-message-${container.id}" placeholder="Type a message..." aria-label="Message Input" />
-        <button id="chat-send-btn-${container.id}" aria-label="Send Message">Send</button>
+        <div class="chat-input-container">
+          <input type="text" id="chat-input-message-${container.id}" placeholder="Type a message..." aria-label="Message Input" />
+          <button id="chat-send-btn-${container.id}" aria-label="Send Message">Send</button>
+        </div>
       </footer>
     </div>
   `;
@@ -190,7 +186,7 @@ async function openNewChatContainer(type, targetId) {
   const cancelReplyBtn = container.querySelector(".chat-reply-cancel");
   cancelReplyBtn.addEventListener("click", () => clearReplyMessage(container));
 
-  // Load the conversation using the proven (v1) logic.
+  // Load the conversation using proven logic.
   if (type === 'dm') {
     loadDMConversation(targetId, container.querySelector('.chat-body-feed'));
   } else if (type === 'channel') {
@@ -238,22 +234,28 @@ async function ensureChannelMembership(channelId) {
  **************************************************/
 function onCloseChatContainer(event, currentContainer, requireConfirm = false) {
   event.stopPropagation();
-  currentContainer.remove();
-  const index = additionalContainers.findIndex(cData => cData.container === currentContainer);
-  if (index > -1) {
-    additionalContainers.splice(index, 1);
-  }
-  reAlignChatContainers();
+  currentContainer.classList.add("closing"); // trigger closing animation
+  currentContainer.addEventListener("transitionend", () => {
+    currentContainer.remove();
+    const index = additionalContainers.findIndex(cData => cData.container === currentContainer);
+    if (index > -1) {
+      additionalContainers.splice(index, 1);
+    }
+    reAlignChatContainers();
+  }, { once: true });
 }
 
 /**************************************************
  * Re-align chat containers after one is closed
+ * Prevent overlapping by recalculating positions.
  **************************************************/
 function reAlignChatContainers() {
-  let totalWidth = 25;
+  const margin = 25;
+  let totalWidth = margin;
   additionalContainers.forEach(cData => {
+    // Ensure that containers are aligned horizontally with a gap.
     cData.container.style.left = `${totalWidth}px`;
-    totalWidth += cData.container.offsetWidth + 10;
+    totalWidth += cData.container.offsetWidth + margin;
   });
 }
 
@@ -280,7 +282,7 @@ function switchMode(mode, currentContainer) {
 }
 
 /**************************************************
- * Setup DM UI in Base Container (uses v2 markup)
+ * Setup DM UI in Base Container
  **************************************************/
 async function setupDMUI(currentContainer) {
   const topEl = currentContainer.querySelector(".chat-body-top");
@@ -289,12 +291,12 @@ async function setupDMUI(currentContainer) {
       <div class="chat-search-wrapper">
         <input type="text" class="chat-search-input" id="dm-search-input" placeholder="Search by username or name..." aria-label="Search DM Users" />
         <button class="chat-search-button" id="dm-search-button" title="Search" aria-label="Search"><i class="fa fa-search"></i></button>
-        <div class="chat-autocomplete-results" id="dm-autocomplete-results" style="display:none;"></div>
+        <div class="chat-autocomplete-results" id="dm-autocomplete-results"></div>
       </div>
     </div>
   `;
   const listEl = currentContainer.querySelector(".chat-body-list");
-  listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading recent DMs...</div>`;
+  listEl.innerHTML = `<div class="loading-message">Loading recent DMs...</div>`;
   await loadRecentDMs(currentContainer);
 
   const searchInput = currentContainer.querySelector("#dm-search-input");
@@ -356,12 +358,12 @@ async function setupChannelUI(currentContainer) {
       <div class="chat-search-wrapper">
         <input type="text" class="chat-search-input" id="channel-search-input" placeholder="Search or create channels..." aria-label="Search Channels" />
         <button class="chat-search-button" id="channel-search-button" title="Search or Create Channel" aria-label="Search or Create Channel"><i class="fa fa-plus"></i></button>
-        <div class="chat-autocomplete-results" id="channel-autocomplete-results" style="display:none;"></div>
+        <div class="chat-autocomplete-results" id="channel-autocomplete-results"></div>
       </div>
     </div>
   `;
   const listEl = currentContainer.querySelector(".chat-body-list");
-  listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading channels...</div>`;
+  listEl.innerHTML = `<div class="loading-message">Loading channels...</div>`;
   await loadRecentChannels(currentContainer);
 
   const searchInput = currentContainer.querySelector("#channel-search-input");
@@ -439,7 +441,8 @@ async function doChannelSearch(searchInput, resultsBox, currentContainer) {
     return;
   }
   resultsBox.innerHTML = data.map(ch => {
-    return `<div class="chat-autocomplete-item" data-channelid="${ch.id}">#${ch.channel_name} <small>(${formatTimestamp(ch.updated_at || Date.now())})</small></div>`;
+    const lastDate = ch.updated_at ? formatTimestamp(ch.updated_at) : "No messages yet";
+    return `<div class="chat-autocomplete-item" data-channelid="${ch.id}">#${ch.channel_name} <small>(${lastDate})</small></div>`;
   }).join("");
   resultsBox.style.display = "block";
 }
@@ -520,7 +523,7 @@ function initRealtimeSubscriptions() {
  **************************************************/
 async function loadRecentDMs(currentContainer) {
   const listEl = currentContainer.querySelector(".chat-body-list");
-  listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading recent DMs...</div>`;
+  listEl.innerHTML = `<div class="loading-message">Loading recent DMs...</div>`;
 
   const { data: allDMs, error } = await supabaseClient
     .from("direct_messages")
@@ -530,12 +533,12 @@ async function loadRecentDMs(currentContainer) {
 
   if (error) {
     console.error("loadRecentDMs - Error loading DMs:", error);
-    listEl.innerHTML = `<div style="padding:8px;">Failed to load DMs</div>`;
+    listEl.innerHTML = `<div class="error-message">Failed to load DMs</div>`;
     return;
   }
 
   if (!allDMs || !allDMs.length) {
-    listEl.innerHTML = `<div style="padding:8px;">No recent direct messages yet!</div>`;
+    listEl.innerHTML = `<div class="empty-message">No recent direct messages yet!</div>`;
     return;
   }
 
@@ -586,9 +589,8 @@ async function loadRecentDMs(currentContainer) {
  **************************************************/
 async function loadRecentChannels(currentContainer) {
   const listEl = currentContainer.querySelector(".chat-body-list");
-  listEl.innerHTML = `<div style="padding:8px; font-size:14px;">Loading channels...</div>`;
+  listEl.innerHTML = `<div class="loading-message">Loading channels...</div>`;
 
-  // Use relationship syntax so Supabase recognizes the join.
   const { data, error } = await supabaseClient
     .from("channel_members")
     .select(`
@@ -606,13 +608,13 @@ async function loadRecentChannels(currentContainer) {
 
   if (error) {
     console.error("loadRecentChannels - Error loading channels:", error);
-    listEl.innerHTML = `<div style="padding:8px;">Failed to load channels</div>`;
+    listEl.innerHTML = `<div class="error-message">Failed to load channels</div>`;
     return;
   }
 
   const acceptedRows = (data || []).filter(row => row.is_accepted !== false);
   if (!acceptedRows.length) {
-    listEl.innerHTML = `<div style="padding:8px;">No joined channels. Create one!</div>`;
+    listEl.innerHTML = `<div class="empty-message">No joined channels. Create one!</div>`;
     return;
   }
 
@@ -654,7 +656,7 @@ async function loadRecentChannels(currentContainer) {
  * Load DM Conversation (v1 logic with reply join)
  **************************************************/
 async function loadDMConversation(userId, feedElement) {
-  feedElement.innerHTML = `<div style="padding:8px;">Loading messages...</div>`;
+  feedElement.innerHTML = `<div class="loading-message">Loading messages...</div>`;
   const orClause = `and(sender_id.eq.${currentUser.id},recipient_id.eq.${userId}),and(sender_id.eq.${userId},recipient_id.eq.${currentUser.id})`;
   const { data, error } = await supabaseClient
     .from("direct_messages")
@@ -663,7 +665,7 @@ async function loadDMConversation(userId, feedElement) {
     .order("created_at", { ascending: true });
   if (error) {
     console.error("Error loading DMs:", error);
-    feedElement.innerHTML = `<div style="padding:8px;">Failed to load messages</div>`;
+    feedElement.innerHTML = `<div class="error-message">Failed to load messages</div>`;
     return;
   }
   renderMessages(data, 'dm', feedElement);
@@ -673,7 +675,7 @@ async function loadDMConversation(userId, feedElement) {
  * Load Channel Conversation (v1 logic with reply join)
  **************************************************/
 async function loadChannelConversation(chId, feedElement) {
-  feedElement.innerHTML = `<div style="padding:8px;">Loading channel messages...</div>`;
+  feedElement.innerHTML = `<div class="loading-message">Loading channel messages...</div>`;
   const { data, error } = await supabaseClient
     .from("messages")
     .select("*, reply_to ( id, user_id, content )")
@@ -681,21 +683,23 @@ async function loadChannelConversation(chId, feedElement) {
     .order("created_at", { ascending: true });
   if (error) {
     console.error("Error loading channel messages:", error);
-    feedElement.innerHTML = `<div style="padding:8px;">Failed to load messages</div>`;
+    feedElement.innerHTML = `<div class="error-message">Failed to load messages</div>`;
     return;
   }
   renderMessages(data, 'channel', feedElement);
 }
 
 /**************************************************
- * Render Messages – now adds reply buttons and,
- * if a message is a reply, shows a reference.
+ * Render Messages – adds reply buttons, animated entry,
+ * and reply references.
  **************************************************/
 async function renderMessages(arr, mode, feedElement) {
   feedElement.innerHTML = "";
   for (const msg of arr) {
     const div = document.createElement("div");
     div.classList.add("chat-message");
+    // Animate message appearance
+    div.classList.add("message-animate");
     const senderId = mode === 'dm' ? msg.sender_id : msg.user_id;
     if (senderId === currentUser.id) {
       div.classList.add("sent");
@@ -714,16 +718,14 @@ async function renderMessages(arr, mode, feedElement) {
         <strong>${getDisplayName(originalSender)}:</strong> ${msg.reply_to.content || "[No text]"}
       </div>`;
     }
-    // Build the main message content with a reply button.
     div.innerHTML = `
       ${replyReferenceHTML}
       <div class="chat-message-main">
         <span class="user-initials">${initials}</span>
         <span class="chat-message-content">${msg.content || "[No text]"}</span>
-        <button class="chat-reply-btn" title="Reply" data-msg-id="${msg.id}">↩</button>
+        <button class="chat-reply-btn" title="Reply" data-msg-id="${msg.id}" aria-label="Reply">↩</button>
       </div>
     `;
-    // Attach event listener for the reply button.
     const replyBtn = div.querySelector(".chat-reply-btn");
     replyBtn.addEventListener("click", () => {
       const container = feedElement.closest(".chat-container");
@@ -735,7 +737,7 @@ async function renderMessages(arr, mode, feedElement) {
 }
 
 /**************************************************
- * Send a Message – now includes any reply reference.
+ * Send a Message – includes reply reference if set.
  **************************************************/
 async function handleSendMessage(event, currentContainer) {
   const inp = currentContainer.querySelector(".chat-footer input[type='text']");
@@ -876,12 +878,10 @@ function setReplyMessage(container, msg) {
   const preview = container.querySelector(`#chat-reply-preview-${container.id}`);
   if (preview) {
     const replyTextSpan = preview.querySelector(".chat-reply-text");
-    // Determine the original sender (sender_id for DM; user_id for channel)
     const senderId = msg.sender_id || msg.user_id;
     const senderInfo = userInfoCache[senderId] || { username: "Unknown" };
-    // Show a truncated version of the original message
     replyTextSpan.textContent = `Replying to ${getDisplayName(senderInfo)}: ${msg.content.substring(0, 30)}...`;
-    preview.style.display = "block";
+    preview.style.display = "flex";
   }
 }
 
