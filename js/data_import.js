@@ -5,10 +5,11 @@ $(document).ready(function () {
    **********************/
   let selectedProjectId = null;
   let currentTableData = []; // Array of row objects holding saved data
-  let currentHeaders = [];   // Array of header names (order is preserved)
+  let currentHeaders = [];   // Array of column keys (order is preserved)
   let currentTableRecord = null; // Currently loaded record from Supabase
   let pendingChanges = {};   // To store pending changes before saving
   let originalData = [];     // Deep copy for comparison
+  let hot; // Handsontable instance // HANDSONTABLE INTEGRATION
 
   // Constants for extra rows/cols to show beyond current data:
   const EXTRA_ROWS = 5;
@@ -40,6 +41,8 @@ $(document).ready(function () {
   }
 
   // Return the headers (using global currentHeaders if available).
+  // If no headers exist yet then (for a new table) we default to five columns
+  // with internal keys "col1", "col2", … which render as blank.
   function computeHeaders() {
     if (currentHeaders && currentHeaders.length > 0) {
       return currentHeaders;
@@ -48,11 +51,11 @@ $(document).ready(function () {
       currentHeaders = Object.keys(currentTableData[0]);
       return currentHeaders;
     }
-    currentHeaders = ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5"];
+    currentHeaders = ["col1", "col2", "col3", "col4", "col5"];
     return currentHeaders;
   }
 
-  // Record a cell change.
+  // Record a cell change. // HANDSONTABLE INTEGRATION - No longer directly used, Handsontable manages changes
   function recordCellChange(rowIdx, header, newValue) {
     if (
       originalData[rowIdx] &&
@@ -74,81 +77,38 @@ $(document).ready(function () {
     updateSaveButtonVisibility();
   }
 
+  // Generate a unique new column key for extra columns (e.g. "col6")
+  function getUniqueNewColumnKey() {
+    let max = 0;
+    currentHeaders.forEach(header => {
+      const match = header.match(/^col(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > max) max = num;
+      }
+    });
+    return "col" + (max + 1);
+  }
+
+  // Generate a unique default header name (for auto-renaming upon cell edit)
+  function getUniqueDefaultHeaderName() {
+    const baseName = "Default Value";
+    let newName = baseName;
+    let count = 1;
+    while (currentHeaders.includes(newName)) {
+      count++;
+      newName = baseName + " " + count;
+    }
+    return newName;
+  }
+
   /**********************
-   * SPREADSHEET RENDERING
+   * SPREADSHEET RENDERING // HANDSONTABLE INTEGRATION - REPLACED BY HANDSONTABLE
    **********************/
   // Render the spreadsheet-style table into the element with id="data-table".
-  // Improvements:
-  // - Uses a document fragment to batch DOM updates.
-  // - Avoids re-binding events on every cell by using delegated event handlers.
+  // Uses a document fragment to batch DOM updates and delegated events.
   function renderSpreadsheet() {
-    const headers = computeHeaders();
-    currentTableData = normalizeDataRows(currentTableData, headers);
-
-    const numDataRows = currentTableData.length;
-    const numRows = numDataRows + EXTRA_ROWS;
-    const numDataCols = headers.length;
-    const numCols = numDataCols + EXTRA_COLS;
-
-    // Build the table using a document fragment.
-    const frag = document.createDocumentFragment();
-    const table = document.createElement('table');
-    table.id = "spreadsheet-table";
-    table.className = "spreadsheet-table";
-    table.style.tableLayout = "fixed";
-    table.style.width = "100%";
-    table.style.borderCollapse = "collapse";
-
-    // Build table header.
-    const thead = document.createElement('thead');
-    const headerRow = document.createElement('tr');
-    for (let col = 0; col < numCols; col++) {
-      const th = document.createElement('th');
-      th.dataset.col = col;
-      th.className = "spreadsheet-th";
-      th.style.cssText = "border: 1px solid #ccc; padding: 5px; text-align: left; position: relative; width:80px; overflow: hidden;";
-      th.textContent = (col < numDataCols) ? headers[col] : "New Column";
-      if (col < numDataCols) {
-        const trash = document.createElement('i');
-        trash.className = "fa fa-trash delete-col-icon";
-        trash.dataset.col = col;
-        trash.style.cssText = "cursor:pointer; color:red; margin-left:5px;";
-        th.appendChild(trash);
-      }
-      headerRow.appendChild(th);
-    }
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
-
-    // Build table body.
-    const tbody = document.createElement('tbody');
-    for (let row = 0; row < numRows; row++) {
-      const tr = document.createElement('tr');
-      tr.dataset.row = row;
-      for (let col = 0; col < numCols; col++) {
-        const td = document.createElement('td');
-        td.dataset.row = row;
-        td.dataset.col = col;
-        td.className = "spreadsheet-td";
-        td.style.cssText = "border: 1px solid #ccc; padding: 5px; min-width:80px; width:80px; overflow: hidden; cursor: pointer;";
-        let cellValue = "";
-        if (row < numDataRows && col < numDataCols) {
-          cellValue = currentTableData[row][headers[col]];
-        }
-        // Highlight if there is a pending change.
-        if (row < numDataRows && col < numDataCols && pendingChanges[row] && pendingChanges[row][headers[col]] !== undefined) {
-          td.style.backgroundColor = "#ffeb3b";
-        }
-        td.textContent = cellValue;
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    }
-    table.appendChild(tbody);
-
-    // Update the DOM in one operation.
-    $("#data-table").empty().append(table);
-    $(".header-container").show();
+    // NO LONGER USED - HANDSONTABLE HANDLES RENDERING
   }
 
   // Expand the data structure if a cell in an extra row/column is edited.
@@ -160,10 +120,10 @@ $(document).ready(function () {
     if (colIdx >= numDataCols) {
       const colsToAdd = colIdx - numDataCols + 1;
       for (let i = 0; i < colsToAdd; i++) {
-        const newColName = getUniqueNewColumnName();
-        currentHeaders.push(newColName);
+        const newColKey = getUniqueNewColumnKey();
+        currentHeaders.push(newColKey);
         currentTableData.forEach(row => {
-          row[newColName] = "";
+          row[newColKey] = "";
         });
       }
     }
@@ -181,101 +141,17 @@ $(document).ready(function () {
     }
   }
 
-  // Generate a unique new column name.
-  function getUniqueNewColumnName() {
-    const baseName = "New Column";
-    let newName = baseName;
-    let count = 1;
-    while (currentHeaders.includes(newName)) {
-      newName = baseName + " " + (++count);
-    }
-    return newName;
-  }
-
   // Delegate cell editing events using a single delegated handler.
-  $("#data-table").off("click", ".spreadsheet-td").on("click", ".spreadsheet-td", function (e) {
-    const $td = $(this);
-    if ($td.hasClass("editing")) return;
-    const rowIdx = parseInt($td.data("row"));
-    const colIdx = parseInt($td.data("col"));
-    const headers = computeHeaders();
-    const cellOriginalValue = (originalData[rowIdx] && originalData[rowIdx][headers[colIdx]]) || "";
-    const currentValue = $td.text();
-    $td.addClass("editing");
-    const $input = $(`<input type="text" value="${currentValue}" style="width: 100%; box-sizing: border-box; border: none; outline: none;" />`);
-    $td.empty().append($input);
-    $input.focus().select();
-
-    // Debounce blur/keydown handling with a small delay.
-    const finishEditing = (ev) => {
-      if (ev.type === "blur" || ev.key === "Enter") {
-        const newValue = $input.val();
-        ensureCellExists(rowIdx, colIdx);
-        const header = (colIdx < headers.length) ? headers[colIdx] : currentHeaders[colIdx];
-        if (cellOriginalValue !== newValue) {
-          currentTableData[rowIdx][header] = newValue;
-          recordCellChange(rowIdx, header, newValue);
-        } else if (pendingChanges[rowIdx] && pendingChanges[rowIdx][header] !== undefined) {
-          delete pendingChanges[rowIdx][header];
-          if (Object.keys(pendingChanges[rowIdx]).length === 0) {
-            delete pendingChanges[rowIdx];
-          }
-          updateSaveButtonVisibility();
-        }
-        // Use requestAnimationFrame to schedule the re-render for smoother visuals.
-        requestAnimationFrame(() => renderSpreadsheet());
-      } else if (ev.key === "Escape") {
-        requestAnimationFrame(() => renderSpreadsheet());
-      }
-    };
-    $input.one("blur", finishEditing).on("keydown", finishEditing);
-  });
+  $("#data-table").off("click", ".spreadsheet-td") //.on("click", ".spreadsheet-td", function (e) { // HANDSONTABLE INTEGRATION - NO LONGER USED
+  // });
 
   // Delegate header editing on double-click.
-  $("#data-table").off("dblclick", ".spreadsheet-th").on("dblclick", ".spreadsheet-th", function (e) {
-    const $th = $(this);
-    const colIdx = parseInt($th.data("col"));
-    if (colIdx >= currentHeaders.length) return;
-    const currentName = currentHeaders[colIdx];
-    const $input = $(`<input type="text" value="${currentName}" style="width: 100%; box-sizing: border-box; border: none; outline: none;" />`);
-    $th.empty().append($input);
-    $input.focus().select();
-    $input.one("blur keydown", function (ev) {
-      if (ev.type === "blur" || ev.key === "Enter") {
-        const newName = $(this).val().trim();
-        if (newName && newName !== currentName) {
-          currentHeaders[colIdx] = newName;
-          currentTableData.forEach(row => {
-            row[newName] = row[currentName];
-            delete row[currentName];
-          });
-          pendingChanges["colRename"] = pendingChanges["colRename"] || {};
-          pendingChanges["colRename"][currentName] = newName;
-        }
-        requestAnimationFrame(() => renderSpreadsheet());
-      } else if (ev.key === "Escape") {
-        requestAnimationFrame(() => renderSpreadsheet());
-      }
-    });
-  });
+  $("#data-table").off("dblclick", ".spreadsheet-th") //.on("dblclick", ".spreadsheet-th", function (e) { // HANDSONTABLE INTEGRATION - NO LONGER USED
+  // });
 
   // Delegate deletion of columns via the trash icon.
-  $("#data-table").off("click", ".delete-col-icon").on("click", ".delete-col-icon", function (e) {
-    e.stopPropagation();
-    const colIdx = parseInt($(this).data("col"));
-    const headers = computeHeaders();
-    if (colIdx < headers.length) {
-      const colName = headers[colIdx];
-      if (confirm(`Delete column "${colName}" from the table?`)) {
-        currentHeaders.splice(colIdx, 1);
-        currentTableData.forEach(row => {
-          delete row[colName];
-        });
-        pendingChanges["columnDeletion"] = true;
-        requestAnimationFrame(() => renderSpreadsheet());
-      }
-    }
-  });
+  $("#data-table").off("click", ".delete-col-icon") //.on("click", ".delete-col-icon", function (e) { // HANDSONTABLE INTEGRATION - NO LONGER USED
+  // });
 
   /**********************
    * SAVE CHANGES
@@ -284,11 +160,16 @@ $(document).ready(function () {
     $(this).prop("disabled", true).text("Saving...");
     try {
       const newTableName = $("#table-name-input").val();
-      const updatedData = normalizeDataRows(currentTableData, currentHeaders);
+      // HANDSONTABLE INTEGRATION START - Get data from Handsontable
+      const updatedData = hot.getData();
+      const headers = hot.getColHeader(); // Get headers directly from Handsontable
+      const normalizedData = normalizeDataRows(updatedData, headers); // Normalize data with headers
+      // HANDSONTABLE INTEGRATION END
+
       const { error } = await supabaseClient
         .from("project_data")
         .update({
-          data: updatedData,
+          data: normalizedData, // Use normalized data
           file_name: newTableName,
           updated_at: new Date().toISOString()
         })
@@ -299,10 +180,10 @@ $(document).ready(function () {
       } else {
         console.log("Data updated successfully");
         alert("Changes saved successfully.");
-        currentTableRecord.data = updatedData;
-        originalData = JSON.parse(JSON.stringify(updatedData));
+        currentTableRecord.data = normalizedData; // Update with normalized data
+        originalData = JSON.parse(JSON.stringify(normalizedData)); // Update original data
         pendingChanges = {};
-        renderSpreadsheet();
+        // renderSpreadsheet(); // HANDSONTABLE INTEGRATION - No need to re-render, Handsontable is updated
       }
     } catch (err) {
       console.error("Exception while saving changes:", err);
@@ -314,6 +195,7 @@ $(document).ready(function () {
   });
 
   function updateSaveButtonVisibility() {
+    // HANDSONTABLE INTEGRATION - Pending changes logic might need adjustments depending on how Handsontable tracks changes. For now keep as is, and adjust if needed.
     let totalChanges = 0;
     for (const key in pendingChanges) {
       if (typeof pendingChanges[key] === "object") {
@@ -502,7 +384,9 @@ $(document).ready(function () {
       alert("Data table creation cancelled. A table name is required.");
       return;
     }
-    let defaultHeaders = ["Column 1", "Column 2", "Column 3", "Column 4", "Column 5"];
+    // For a new (blank) table we start with 5 columns.
+    // The internal keys are "col1", "col2", … but they will render as blank.
+    let defaultHeaders = ["col1", "col2", "col3", "col4", "col5"];
     currentHeaders = defaultHeaders.slice();
     let newTableData = [];
     for (let r = 0; r < 10; r++) {
@@ -536,7 +420,8 @@ $(document).ready(function () {
     $("#table-name-input").val(newTableName);
     $(".header-container").show();
     originalData = JSON.parse(JSON.stringify(newTableData));
-    renderSpreadsheet();
+    // renderSpreadsheet(); // HANDSONTABLE INTEGRATION - No longer used
+    initializeHandsontable(currentTableData); // HANDSONTABLE INTEGRATION - Initialize Handsontable
     loadProjectDataTables(selectedProjectId);
   }
 
@@ -604,7 +489,8 @@ $(document).ready(function () {
       originalData = JSON.parse(JSON.stringify(currentTableData));
       $("#table-name-input").val(selectedTable.file_name || "Untitled DataTable");
       $(".header-container").show();
-      renderSpreadsheet();
+      // renderSpreadsheet(); // HANDSONTABLE INTEGRATION - No longer used
+      initializeHandsontable(currentTableData); // HANDSONTABLE INTEGRATION - Initialize Handsontable
     } else {
       console.log("Selected data table is empty.");
       hideDataTable();
@@ -612,9 +498,89 @@ $(document).ready(function () {
   }
 
   function hideDataTable() {
+    // HANDSONTABLE INTEGRATION START - Destroy Handsontable instance when hiding table
+    if (hot) {
+      hot.destroy();
+      hot = null;
+    }
+    // HANDSONTABLE INTEGRATION END
     $("#data-table").empty();
     $("#table-name-container").hide();
   }
+
+  /**********************
+   * HANDSONTABLE INITIALIZATION AND CONFIGURATION // HANDSONTABLE INTEGRATION START
+   **********************/
+  function initializeHandsontable(data) {
+    const container = document.getElementById('data-table');
+    if (!container) {
+      console.error("Data table container element not found.");
+      return;
+    }
+
+    if (hot) { // If Handsontable instance already exists, destroy it first
+      hot.destroy();
+    }
+
+    hot = new Handsontable(container, {
+      data: data,
+      colHeaders: computeHeaders(), // Use computed headers
+      rowHeaders: true,
+      stretchH: 'all',
+      licenseKey: 'non-commercial-and-evaluation', // for non-commercial use
+      contextMenu: true, // Enable context menu for copy/paste etc.
+      manualColumnResize: true,
+      manualRowResize: true,
+      // editing and deleting is enabled by default
+      columns: currentHeaders.map(header => { // Define columns based on headers for flexibility
+        return {
+          title: /^col\d+$/.test(header) ? '' : header, // Show blank header if it's default column key
+          data: header // Bind column to header key
+        };
+      }),
+      afterChange: function (changes, source) { // Handle changes in data
+        if (source === 'loadData') {
+          return; //don't save or do anything if data is loaded
+        }
+        if (!changes) return; // No changes detected
+
+        changes.forEach(([rowIdx, header, oldValue, newValue]) => {
+          if (header !== 'rowHeader' ) { // Ignore row header changes
+              recordCellChange(rowIdx, header, newValue); // Track changes - though might not be needed with Handsontable's change tracking
+          }
+        });
+      },
+      afterColumnRemove: function(index, amount) {
+          pendingChanges["columnDeletion"] = true; // Track column deletion
+          updateSaveButtonVisibility();
+      },
+      afterColumnRename: function(index, newName) {
+          const oldName = currentHeaders[index];
+          if (newName && newName !== oldName) {
+              currentHeaders[index] = newName; // Update header array
+              pendingChanges["colRename"] = pendingChanges["colRename"] || {};
+              pendingChanges["colRename"][oldName] = newName; // Track column rename
+              updateSaveButtonVisibility();
+          }
+      },
+      afterCreateCol: function(index, amount, source) {
+          pendingChanges["columnAddition"] = true; // Track column addition
+          updateSaveButtonVisibility();
+      },
+      afterCreateRow: function(index, amount, source) {
+          pendingChanges["rowAddition"] = true; // Track row addition
+          updateSaveButtonVisibility();
+      },
+      afterRemoveRow: function(index, amount, visualRows, removedData) {
+          pendingChanges["rowDeletion"] = true; // Track row deletion
+          updateSaveButtonVisibility();
+      },
+    });
+  }
+  /**********************
+   * HANDSONTABLE INITIALIZATION AND CONFIGURATION // HANDSONTABLE INTEGRATION END
+   **********************/
+
 
   /**********************
    * PROJECT SELECTION & INIT
