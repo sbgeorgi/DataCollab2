@@ -1,0 +1,11 @@
+{
+  "name": "datacollab",
+  "version": "1.0.0",
+  "description": "A static web application for data collaboration",
+  "scripts": {
+    "start": "npx http-server -o",
+    "test": "echo \"Error: no tests specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT"
+}
